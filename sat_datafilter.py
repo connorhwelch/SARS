@@ -1,7 +1,5 @@
 import numpy as np
-from datetime import datetime
-from datetime import timedelta
-
+from datetime import datetime, timedelta, timezone
 
 ########################################################################################################################
 def get_month_bounds(start_date, month_index, months_per_job=1):
@@ -26,7 +24,8 @@ def get_month_bounds(start_date, month_index, months_per_job=1):
     # First day of the first month in the range
     month_start = datetime(start_date.year + year_offset_start,
                            start_date.month + month_offset_start,
-                           1)
+                           1
+                           tzinfo=timezone.utc)
 
     # Calculate ending month (last month in the range)
     actual_month_end = actual_month_start + months_per_job - 1
@@ -43,9 +42,9 @@ def get_month_bounds(start_date, month_index, months_per_job=1):
         temp_year += 1
 
     if temp_month == 12:
-        month_end = datetime(temp_year + 1, 1, 1)
+        month_end = datetime(temp_year + 1, 1, 1, tzinfo=timezone.utc)
     else:
-        month_end = datetime(temp_year, temp_month + 1, 1)
+        month_end = datetime(temp_year, temp_month + 1, 1, tzinfo=timezone.utc)
 
     # Subtract one second to get last moment of the last month
     month_end = month_end - timedelta(seconds=1)
@@ -103,8 +102,16 @@ def filter_data_by_month(data, month_start, month_end):
 
     # Handle different time formats
     if isinstance(time_array[0], datetime):
-        # Already datetime objects
-        mask = (time_array >= month_start) & (time_array <= month_end)
+        # Strip timezone info from time_array if present
+        time_array_naive = np.array([t.replace(tzinfo=None) if t.tzinfo is not None else t
+                                     for t in time_array])
+
+        # Strip timezone from bounds if present
+        month_start_naive = month_start.replace(tzinfo=None) if month_start.tzinfo else month_start
+        month_end_naive = month_end.replace(tzinfo=None) if month_end.tzinfo else month_end
+
+        mask = (time_array_naive >= month_start_naive) & (time_array_naive <= month_end_naive)
+
     elif isinstance(time_array[0], (int, float)):
         # Assume Unix timestamp
         month_start_ts = month_start.timestamp()
