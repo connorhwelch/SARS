@@ -32,7 +32,7 @@ def args_for_batching():
 ########################################################################################################################
 def main(args):
 
-    satellites = load_all_tle(args.data_path)
+    satellites = load_all_tle(args.data_dir)
 
     orbit_analyzer = HistoricalOrbitAnalyzer(satellites, satellite_names)
 

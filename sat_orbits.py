@@ -20,7 +20,7 @@ class HistoricalOrbitAnalyzer:
         satellites: list of EarthSatellite
         sat_definitions: dict {name: norad_id}
         """
-        self.ts = load.timescale()
+        self.ts = load.timecale()
         self.sat_definitions = sat_definitions
 
         self.sats_by_norad = defaultdict(list)
@@ -40,7 +40,7 @@ class HistoricalOrbitAnalyzer:
         """Calculate satellite ground track propagation"""
         sats = self.get_satellite_history(name)
 
-        lats, lons, heights, times = [], [], [], []
+        lat, lon, heights, time = [], [], [], []
 
         for i, sat in enumerate(sats):
             t0 = sat.epoch
@@ -56,12 +56,12 @@ class HistoricalOrbitAnalyzer:
             )
 
             sp = wgs84.subpoint_of(sat.at(t))
-            lats.extend(sp.latitude.degrees)
-            lons.extend(sp.longitude.degrees)
+            lat.extend(sp.latitude.degrees)
+            lon.extend(sp.longitude.degrees)
             # heights.extend(sp.elevation.m)
-            times.extend(t.utc_datetime())
+            time.extend(t.utc_datetime())
 
-        return {'lats': np.array(lats), 'lons': np.array(lons), 'times': np.array(times)}
+        return {'lat': np.array(lat), 'lon': np.array(lon), 'time': np.array(time)}
 
     def get_tle_time_differences(self, name, unit='hours'):
         """
@@ -249,14 +249,14 @@ def groundtrack_intersections(track1, track2, max_km=100, max_dt_sec=7200):
 
     intersections = []
 
-    for i, t1 in enumerate(track1["times"]):
-        dt = abs(track2["times"] - t1)
+    for i, t1 in enumerate(track1["time"]):
+        dt = abs(track2["time"] - t1)
         idx = np.where(dt < timedelta(seconds=max_dt_sec))[0]
 
         for j in idx:
             d = ground_distance_km(
-                track1["lats"][i], track1["lons"][i],
-                track2["lats"][j], track2["lons"][j]
+                track1["lat"][i], track1["lon"][i],
+                track2["lat"][j], track2["lon"][j]
             )
             if d <= max_km:
                 intersections.append((t1, i, j, d))
@@ -272,10 +272,10 @@ def ground_distance_km(lat1, lon1, lat2, lon2):
 
 ########################################################################################################################
 # def triple_groundtrack_intersections(intersections_ab, intersections_ac):
-#         times_ab = set(t for t, _, _ in intersections_ab)
-#         times_ac = set(t for t, _, _ in intersections_ac)
+#         time_ab = set(t for t, _, _ in intersections_ab)
+#         time_ac = set(t for t, _, _ in intersections_ac)
 #
-#         return sorted(times_ab & times_ac)
+#         return sorted(time_ab & time_ac)
 #
 def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_buffer=timedelta(hours=2)):
     """
@@ -289,15 +289,15 @@ def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_bu
     ac_sorted = sorted(intersections_ac, key=lambda x: x[0])
 
     matches = []
-    ac_times = np.array([t for t, _, _, _ in ac_sorted])
+    ac_time = np.array([t for t, _, _, _ in ac_sorted])
 
     for t_ab, idx_a_ab, idx_b, d_ab in ab_sorted:
-        # Use binary search to find AC times within buffer
+        # Use binary search to find AC time within buffer
         lower_bound = t_ab - time_buffer
         upper_bound = t_ab + time_buffer
 
-        idx_start = np.searchsorted(ac_times, lower_bound, side='left')
-        idx_end = np.searchsorted(ac_times, upper_bound, side='right')
+        idx_start = np.searchsorted(ac_time, lower_bound, side='left')
+        idx_end = np.searchsorted(ac_time, upper_bound, side='right')
 
         # Add all matches in this time range
         for i in range(idx_start, idx_end):
@@ -311,7 +311,7 @@ def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_bu
 ########################################################################################################################
 def load_all_tle(path_to_tle, glob_file_pattern='sat00*'):
     satellites = []
-    ts = load.timescale()
+    ts = load.timecale()
 
     tle_dir = Path(path_to_tle).expanduser()
 
