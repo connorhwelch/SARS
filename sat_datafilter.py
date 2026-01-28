@@ -24,7 +24,7 @@ def get_month_bounds(start_date, month_index, months_per_job=1):
     # First day of the first month in the range
     month_start = datetime(start_date.year + year_offset_start,
                            start_date.month + month_offset_start,
-                           1
+                           1,
                            tzinfo=timezone.utc)
 
     # Calculate ending month (last month in the range)
