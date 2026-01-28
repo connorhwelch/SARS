@@ -20,7 +20,7 @@ class HistoricalOrbitAnalyzer:
         satellites: list of EarthSatellite
         sat_definitions: dict {name: norad_id}
         """
-        self.ts = load.timecale()
+        self.ts = load.timescale()
         self.sat_definitions = sat_definitions
 
         self.sats_by_norad = defaultdict(list)
