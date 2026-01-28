@@ -3,49 +3,98 @@ from datetime import datetime
 from datetime import timedelta
 
 
-def get_month_bounds(start_date, month_index):
+########################################################################################################################
+def get_month_bounds(start_date, month_index, months_per_job=1):
     """
-    Calculate the start and end dates for a given month index
+    Calculate the start and end dates for a given month range
 
     Args:
         start_date: datetime object for the start of your 3-year period
-        month_index: 0-35 for 36 months
+        month_index: 0-17 for 18 processors (each handling months_per_job months)
+        months_per_job: Number of months each processor handles (default: 2)
 
     Returns:
         (start_datetime, end_datetime) tuple
     """
-    # Calculate which month this is
-    year_offset = month_index // 12
-    month_offset = month_index % 12
+    # Calculate actual starting month (0-35 for 36 months)
+    actual_month_start = month_index * months_per_job
 
-    month_start = datetime(start_date.year + year_offset,
-                           start_date.month + month_offset,
+    # Calculate starting month offset
+    year_offset_start = actual_month_start // 12
+    month_offset_start = actual_month_start % 12
+
+    # First day of the first month in the range
+    month_start = datetime(start_date.year + year_offset_start,
+                           start_date.month + month_offset_start,
                            1)
 
-    # Get first day of next month, then subtract one day
-    if month_start.month == 12:
-        month_end = datetime(month_start.year + 1, 1, 1)
-    else:
-        month_end = datetime(month_start.year, month_start.month + 1, 1)
+    # Calculate ending month (last month in the range)
+    actual_month_end = actual_month_start + months_per_job - 1
+    year_offset_end = actual_month_end // 12
+    month_offset_end = actual_month_end % 12
 
+    # First day of the month AFTER the last month
+    temp_month = start_date.month + month_offset_end
+    temp_year = start_date.year + year_offset_end
+
+    # Handle month overflow
+    while temp_month > 12:
+        temp_month -= 12
+        temp_year += 1
+
+    if temp_month == 12:
+        month_end = datetime(temp_year + 1, 1, 1)
+    else:
+        month_end = datetime(temp_year, temp_month + 1, 1)
+
+    # Subtract one second to get last moment of the last month
     month_end = month_end - timedelta(seconds=1)
 
     return month_start, month_end
 
 
+########################################################################################################################
+def get_month_bounds_flexible(start_date, job_index, total_months=36, total_jobs=18):
+    """
+    Flexible version that auto-calculates months per job
+
+    Args:
+        start_date: datetime object for the start period
+        job_index: 0 to (total_jobs-1)
+        total_months: Total months to process (default: 36)
+        total_jobs: Total number of jobs/processors (default: 18)
+
+    Returns:
+        (start_datetime, end_datetime) tuple
+    """
+    months_per_job = total_months // total_jobs
+
+    if total_months % total_jobs != 0:
+        raise ValueError(f"total_months ({total_months}) must be divisible by total_jobs ({total_jobs})")
+
+    return get_month_bounds(start_date, job_index, months_per_job=months_per_job)
+
+
+########################################################################################################################
 def filter_data_by_month(data, month_start, month_end):
     """
-    Filter the full dataset to only include data from the specified month
+    Filter the full dataset to only include data from the specified month range
 
     Args:
         data: Dictionary with 'lat', 'lon', 'time' keys (numpy arrays or lists)
-        month_start: datetime for start of month
-        month_end: datetime for end of month
+        month_start: datetime for start of period
+        month_end: datetime for end of period
 
     Returns:
-        Filtered dictionary for this month only
+        Filtered dictionary for this period only
     """
-    print(f"Filtering data for {month_start.strftime('%Y-%m')}...")
+    # Format the date range for display
+    if month_start.year == month_end.year and month_start.month == month_end.month:
+        date_range = month_start.strftime('%Y-%m')
+    else:
+        date_range = f"{month_start.strftime('%Y-%m')} to {month_end.strftime('%Y-%m')}"
+
+    print(f"Filtering data for {date_range}...")
 
     # Convert to numpy arrays if not already
     time_array = np.array(data['time'])
@@ -80,4 +129,3 @@ def filter_data_by_month(data, month_start, month_end):
           f"({100 * len(filtered_data['time']) / len(time_array):.1f}% of total)")
 
     return filtered_data
-

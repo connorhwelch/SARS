@@ -51,7 +51,7 @@ def main(args):
     start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
     # end date determined by function and depends on the amount of processors used
     # in this case 36 processors -> 36 months or 3 years [2023-01-01 through 2026-01-01]
-    month_start, month_end = get_month_bounds(start_date, args.month_index)
+    month_start, month_end = get_month_bounds_flexible(start_date, args.month_index)
 
     # filter by the monthly data... each processor will be filtering by a different month
     aqua_month_data = filter_data_by_month(aqua_track, month_start, month_end)
