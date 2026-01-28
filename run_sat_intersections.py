@@ -9,17 +9,20 @@ from sat_datafilter import *
 
 ########################################################################################################################
 def args_for_batching():
+
+
+
     parser = argparse.ArgumentParser(description='Process satellite intersections for one month')
     parser.add_argument('--month-index', type=int, required=True,
                         help='Month index (0-35 for 3 years)')
     parser.add_argument('--data-dir', type=str,
-                        default='/Downloads/',
+                        default='~/Downloads',
                         help='Path to satellite ground track data directory')
     parser.add_argument('--start-date', type=str,
                         default='2023-01-01',
                         help='Start date of 3-year period (YYYY-MM-DD)')
     parser.add_argument('--output-dir', type=str,
-                        default='sat_intersect_results',
+                        default='./.',
                         help='Directory to save results')
 
     args = parser.parse_args()
@@ -64,9 +67,9 @@ def main(args):
 
     # add triple intersection time
     overpass_times = triple_groundtrack_intersections(sentinel2c_inter_aqua, sentinel2c_inter_noaa20)
-
+    print(overpass_times)
     # save intersections
-    save_groundtrack_matches_csv(overpass_times, args.output_dir)
+    save_groundtrack_matches_csv(overpass_times, args.output_dir, column_labels=['sentinel2c-aqua', 'sentinel2c-noaa20', 'diff'])
 
 ########################################################################################################################
 ########################################################################################################################

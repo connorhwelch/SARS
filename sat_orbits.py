@@ -245,7 +245,7 @@ class HistoricalOrbitAnalyzer:
         return fig, ax
 
 ########################################################################################################################
-def groundtrack_intersections(track1, track2, max_km=100, max_dt_sec=14400):
+def groundtrack_intersections(track1, track2, max_km=100, max_dt_sec=7200):
 
     intersections = []
 
@@ -277,7 +277,7 @@ def ground_distance_km(lat1, lon1, lat2, lon2):
 #
 #         return sorted(times_ab & times_ac)
 #
-def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_buffer=timedelta(seconds=14400)):
+def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_buffer=timedelta(hours=2)):
     """
     Efficient version using sorted arrays
     """
