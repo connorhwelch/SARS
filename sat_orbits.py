@@ -311,7 +311,7 @@ def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_bu
 ########################################################################################################################
 def load_all_tle(path_to_tle, glob_file_pattern='sat00*'):
     satellites = []
-    ts = load.timecale()
+    ts = load.timescale()
 
     tle_dir = Path(path_to_tle).expanduser()
 
