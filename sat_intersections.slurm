@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=sat_intersect
-#SBATCH --array=0-35              # 36 jobs for 36 months
+#SBATCH --array=0-17              # 36 jobs for 36 months
 #SBATCH --cpus-per-task=1
 #SBATCH --time=24:00:00           # Adjust based on your needs
 #SBATCH --mem=8G                  # Adjust based on data size
