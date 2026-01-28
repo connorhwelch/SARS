@@ -8,7 +8,7 @@
 #SBATCH --error=logs/sat_%A_%a.err
 
 # Load any required modules
-### PATH TO MAMBA   # Adjust to your HPC's module system
+mamba_bin=/rhome/cwelch/micromamba/envs/juice_r/bin/python  # Adjust to your HPC's module system
 
 # Run the Python script with the month index
-$(pypath) process_satellite_intersections.py --month-index $SLURM_ARRAY_TASK_ID
+$mamba_bin process_satellite_intersections.py --month-index $SLURM_ARRAY_TASK_ID
