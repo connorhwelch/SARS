@@ -7,6 +7,7 @@ from skyfield.api import load, wgs84
 from skyfield.iokit import parse_tle_file
 from collections import defaultdict
 from pathlib import Path
+from matplotlib import pyplot as plt
 
 
 geod = Geod(ellps="WGS84")
@@ -57,7 +58,7 @@ class HistoricalOrbitAnalyzer:
             sp = wgs84.subpoint_of(sat.at(t))
             lats.extend(sp.latitude.degrees)
             lons.extend(sp.longitude.degrees)
-            heights.extend(sp.elevation.m)
+            # heights.extend(sp.elevation.m)
             times.extend(t.utc_datetime())
 
         return {'lats': np.array(lats), 'lons': np.array(lons), 'times': np.array(times)}
