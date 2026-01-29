@@ -258,7 +258,7 @@ def groundtrack_intersections(track1, track2, max_km=200, max_dt_sec=7200):
             lat1 = track1["lat"][i]
             lat2 = track2["lat"][j]
 
-            if not (-50 <= lat1 <= 50 and -50 <= lat2 <= 50):
+            if not (-60 <= lat1 <= 60 and -60 <= lat2 <= 60):
                 continue
 
             d = ground_distance_km(
