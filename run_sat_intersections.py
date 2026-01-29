@@ -22,7 +22,7 @@ def args_for_batching():
                         default='2023-01-01',
                         help='Start date of 3-year period (YYYY-MM-DD)')
     parser.add_argument('--output-dir', type=str,
-                        default='./.',
+                        default='./',
                         help='Directory to save results')
 
     args = parser.parse_args()
@@ -67,9 +67,13 @@ def main(args):
 
     # add triple intersection time
     overpass_times = triple_groundtrack_intersections(sentinel2c_inter_aqua, sentinel2c_inter_noaa20)
-    print(overpass_times)
+    df = pd.DataFrame(overpass_times, columns=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20', 't_noaa20_s2c', 'time_diff'])
+    for col in df.columns[0:-1]:
+        df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M'))
+    print(f'Overpass times between {month_start} and {month_end}:')
+    print(df)
     # save intersections
-    save_groundtrack_matches_csv(overpass_times, args.output_dir, column_labels=['sentinel2c-aqua', 'sentinel2c-noaa20', 'diff'])
+    save_groundtrack_matches_csv(overpass_times, Path(args.output_dir) / 'groundtrack_matches.csv', column_labels=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20', 't_noaa20_s2c', 'time_diff'])
 
 ########################################################################################################################
 ########################################################################################################################
