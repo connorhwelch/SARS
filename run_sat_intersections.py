@@ -73,7 +73,7 @@ def main(args):
     print(f'Overpass times between {month_start} and {month_end}:')
     print(df)
     # save intersections
-    save_groundtrack_matches_csv(overpass_times, Path(args.output_dir) / 'groundtrack_matches.csv', column_labels=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20', 't_noaa20_s2c', 'time_diff'])
+    save_groundtrack_matches_csv(overpass_times, Path(args.output_dir) / f'groundtrack_matches_{args.month_index}.csv', column_labels=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20', 't_noaa20_s2c', 'time_diff'])
 
 ########################################################################################################################
 ########################################################################################################################
