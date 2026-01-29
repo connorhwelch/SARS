@@ -61,19 +61,34 @@ def main(args):
     # obtains groundtrack intersections for sentinel intersecting aqua and noaa20
     # if sentinel intersects with these satellites it is likely that noaa20 and aqua swaths intersect within the time
     # bound of 4 hours.
-    sentinel2c_inter_aqua = groundtrack_intersections(sentinel2c_month_data, aqua_month_data)
-    sentinel2c_inter_noaa20 = groundtrack_intersections(sentinel2c_month_data, noaa20_month_data)
+    sentinel2c_inter_aqua = groundtrack_intersections(sentinel2c_month_data,
+                                                      aqua_month_data,
+                                                      max_dt_sec=10800,
+                                                      lat_bounds=(-45,45))
+
+    sentinel2c_inter_noaa20 = groundtrack_intersections(sentinel2c_month_data,
+                                                        noaa20_month_data,
+                                                        max_dt_sec=10800,
+                                                        lat_bounds=(-45,45))
     # aqua_inter_noaa20 = groundtrack_intersections(aqua_month_data, noaa20_month_data) # not necessary
 
     # add triple intersection time
-    overpass_times = triple_groundtrack_intersections(sentinel2c_inter_aqua, sentinel2c_inter_noaa20)
-    df = pd.DataFrame(overpass_times, columns=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20', 't_noaa20_s2c', 'time_diff'])
+    overpass_times = triple_groundtrack_intersections(sentinel2c_inter_aqua,
+                                                      sentinel2c_inter_noaa20,
+                                                      time_buffer=timedelta(hours=3))
+    df = pd.DataFrame(overpass_times,
+                      columns=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20', 't_noaa20_s2c', 'time_diff']
+                      )
     for col in df.columns[0:-1]:
         df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M'))
     print(f'Overpass times between {month_start} and {month_end}:')
     print(df)
     # save intersections
-    save_groundtrack_matches_csv(overpass_times, Path(args.output_dir) / f'groundtrack_matches_{args.month_index}.csv', column_labels=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20', 't_noaa20_s2c', 'time_diff'])
+    save_groundtrack_matches_csv(overpass_times,
+                                 Path(args.output_dir) / f'groundtrack_matches_{args.month_index}.csv',
+                                 column_labels=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20',
+                                                't_noaa20_s2c', 'time_diff']
+                                 )
 
 ########################################################################################################################
 ########################################################################################################################

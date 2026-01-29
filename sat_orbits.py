@@ -246,7 +246,7 @@ class HistoricalOrbitAnalyzer:
         return fig, ax
 
 ########################################################################################################################
-def groundtrack_intersections(track1, track2, max_km=200, max_dt_sec=7200):
+def groundtrack_intersections(track1, track2, max_km=200, max_dt_sec=7200, lat_bounds=(-45,45)):
     intersections = []
 
     for i, t1 in enumerate(track1["time"]):
@@ -258,7 +258,7 @@ def groundtrack_intersections(track1, track2, max_km=200, max_dt_sec=7200):
             lat1 = track1["lat"][i]
             lat2 = track2["lat"][j]
 
-            if not (-60 <= lat1 <= 60 and -60 <= lat2 <= 60):
+            if not (lat_bounds[0] <= lat1 <= lat_bounds[1] and lat_bounds[0] <= lat2 <= lat_bounds[1]):
                 continue
 
             d = ground_distance_km(
