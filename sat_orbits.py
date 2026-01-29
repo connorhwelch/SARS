@@ -296,7 +296,7 @@ def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_bu
     ac_sorted = sorted(intersections_ac, key=lambda x: x[0])
 
     matches = []
-    ac_time = np.array([t for t, _, _, _ in ac_sorted])
+    ac_time = np.array([t for t, _, _, _, _ in ac_sorted])
 
     for t_ab_a, t_ab_b, idx_a_ab, idx_b, d_ab in ab_sorted:
         # Use binary search to find AC time within buffer
