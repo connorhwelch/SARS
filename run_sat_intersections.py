@@ -107,7 +107,7 @@ def main(args):
                         continue
 
                 else:
-                    raise ValueError('No data for msi {} or modis {} or virrs {}'.format(msi_data, modis_data, viirs_data))
+                    raise ValueError(f'No data for msi {len(msi_data)} or modis {len(modis_data)} or viirs {len(viirs_data)}')
 
 
     for key, overpass_times in triple_intersections.items():
