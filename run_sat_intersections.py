@@ -90,9 +90,20 @@ def main(args):
                     intersections_ac[key_ac] = groundtrack_intersections(msi_data, viirs_data,
                                                                       max_dt_sec=3600,
                                                                       lat_bounds=(-45,45))
-                    # add triple intersection time
-                    triple_intersections[key_abc] = triple_groundtrack_intersections(intersections_ab, intersections_ac,
-                                                                                 time_buffer=timedelta(hours=1))
+
+                    try:
+                        triple_intersections[key_abc] = triple_groundtrack_intersections(
+                            intersections_ab,
+                            intersections_ac,
+                            time_buffer=timedelta(hours=1),
+                        )
+                    except Exception as e:
+                        print(
+                            f"[WARN] Triple intersection failed for {key_abc} "
+                            f"(AB={key_ab}, AC={key_ac}): {e}"
+                        )
+                        continue
+
                 else:
                     raise ValueError('No data for msi {} or modis {} or virrs {}'.format(msi_data, modis_data, viirs_data))
 
