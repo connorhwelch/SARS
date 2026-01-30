@@ -32,6 +32,12 @@ def args_for_batching():
 ########################################################################################################################
 def main(args):
 
+    sat_tracks = {}
+    monthly_filtered = {}
+    intersections_ab = {}
+    intersections_ac = {}
+    triple_intersections = {}
+
     satellites = load_all_tle(args.data_dir)
 
     orbit_analyzer = HistoricalOrbitAnalyzer(satellites, satellite_names)
@@ -43,9 +49,8 @@ def main(args):
     # 300 points per TLE file is used selected based on ~ 5 minute points if the TLE is daily updating
     # this was done to limit number of datapoints used for calculations and later intersection determination
     #
-    aqua_track = orbit_analyzer.ground_track('aqua')
-    noaa20_track = orbit_analyzer.ground_track('noaa20')
-    sentinel2c_track = orbit_analyzer.ground_track('sentinel2c')
+    for sats in satellite_names.keys():
+        sat_tracks[sats] = orbit_analyzer.ground_track(sats)
 
     # filter data by month
     start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
@@ -54,41 +59,58 @@ def main(args):
     month_start, month_end = get_month_bounds_flexible(start_date, args.month_index)
 
     # filter by the monthly data... each processor will be filtering by a different month
-    aqua_month_data = filter_data_by_month(aqua_track, month_start, month_end)
-    noaa20_month_data = filter_data_by_month(noaa20_track, month_start, month_end)
-    sentinel2c_month_data = filter_data_by_month(sentinel2c_track, month_start, month_end)
+    for sats in satellite_names.keys():
+        monthly_filtered[sats] = filter_data_by_month(sat_tracks[sats],
+                                                      month_start,
+                                                      month_end)
 
     # obtains groundtrack intersections for sentinel intersecting aqua and noaa20
     # if sentinel intersects with these satellites it is likely that noaa20 and aqua swaths intersect within the time
     # bound of 4 hours.
-    sentinel2c_inter_aqua = groundtrack_intersections(sentinel2c_month_data,
-                                                      aqua_month_data,
-                                                      max_dt_sec=10800,
-                                                      lat_bounds=(-45,45))
 
-    sentinel2c_inter_noaa20 = groundtrack_intersections(sentinel2c_month_data,
-                                                        noaa20_month_data,
-                                                        max_dt_sec=10800,
-                                                        lat_bounds=(-45,45))
-    # aqua_inter_noaa20 = groundtrack_intersections(aqua_month_data, noaa20_month_data) # not necessary
+    for msi in ['sentinel2a', 'sentinel2b', 'sentinel2c']:
+        for modis in ['aqua', 'terra']:
+            for viirs in ['noaa20', 'noaa21']:
+                # Safely retrieve data using dictionary
+                msi_data = monthly_filtered.get(msi)
+                modis_data = monthly_filtered.get(modis)
+                viirs_data = monthly_filtered.get(viirs)
 
-    # add triple intersection time
-    overpass_times = triple_groundtrack_intersections(sentinel2c_inter_aqua,
-                                                      sentinel2c_inter_noaa20,
-                                                      time_buffer=timedelta(hours=3))
-    df = pd.DataFrame(overpass_times,
-                      columns=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20', 't_noaa20_s2c', 'time_diff']
-                      )
-    for col in df.columns[0:-1]:
-        df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M'))
-    print(f'Overpass times between {month_start} and {month_end}:')
-    print(df)
-    # save intersections
-    save_groundtrack_matches_csv(overpass_times,
-                                 Path(args.output_dir) / f'groundtrack_matches_{args.month_index}.csv',
-                                 column_labels=['t_s2c_aqua', 't_aqua_s2c', 't_s2c_noaa20',
-                                                't_noaa20_s2c', 'time_diff']
-                                 )
+                # Check if all data exists
+                if msi_data and modis_data and viirs_data:
+
+                    key_ab = f"{msi}_{modis}"
+                    key_ac = f"{msi}_{viirs}"
+                    key_abc = f"{msi}_{modis}_{viirs}"
+
+                    intersections_ab[key_ab] = groundtrack_intersections(msi_data, modis_data,
+                                                                      max_dt_sec=3600,
+                                                                      lat_bounds=(-45,45))
+
+                    intersections_ac[key_ac] = groundtrack_intersections(msi_data, viirs_data,
+                                                                      max_dt_sec=3600,
+                                                                      lat_bounds=(-45,45))
+                    # add triple intersection time
+                    triple_intersections[key_abc] = triple_groundtrack_intersections(intersections_ab, intersections_ac,
+                                                                                 time_buffer=timedelta(hours=1))
+                else:
+                    raise ValueError('No data for msi {} or modis {} or virrs {}'.format(msi_data, modis_data, viirs_data))
+
+
+    for key, overpass_times in triple_intersections.items():
+        msi_sat_name, modis_sat_name, viirs_sat_name = key.split('_')
+        df = pd.DataFrame(overpass_times,
+                          columns=[f't_{msi_sat_name}_{modis_sat_name}',
+                                   f't_{modis_sat_name}_{msi_sat_name}',
+                                   f't_{msi_sat_name}_{viirs_sat_name}',
+                                   f't_{viirs_sat_name}_{msi_sat_name}',
+                                   'time_diff']
+                          )
+        for col in df.columns[0:-1]:
+            df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M'))
+
+        df.to_csv(Path(args.output_dir) / f'{key}-gtmatch_{args.month_index}.csv')
+
 
 ########################################################################################################################
 ########################################################################################################################

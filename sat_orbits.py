@@ -246,7 +246,7 @@ class HistoricalOrbitAnalyzer:
         return fig, ax
 
 ########################################################################################################################
-def groundtrack_intersections(track1, track2, max_km=200, max_dt_sec=7200, lat_bounds=(-45,45)):
+def groundtrack_intersections(track1, track2, max_km=100, max_dt_sec=7200, lat_bounds=(-45,45)):
     intersections = []
 
     for i, t1 in enumerate(track1["time"]):
@@ -267,7 +267,7 @@ def groundtrack_intersections(track1, track2, max_km=200, max_dt_sec=7200, lat_b
             )
             if d <= max_km:
                 t2 = track2["time"][j]
-                intersections.append((t1, t2, i, j, d))
+                intersections.append((t1, t2, i, j, d, lat1, lat2))
 
     return intersections
 
@@ -296,9 +296,9 @@ def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_bu
     ac_sorted = sorted(intersections_ac, key=lambda x: x[0])
 
     matches = []
-    ac_time = np.array([t for t, _, _, _, _ in ac_sorted])
+    ac_time = np.array([t for t, _, _, _, _, _, _ in ac_sorted])
 
-    for t_ab_a, t_ab_b, idx_a_ab, idx_b, d_ab in ab_sorted:
+    for t_ab_a, t_ab_b, idx_a_ab, idx_b, d_ab, lat_a, lat_b in ab_sorted:
         # Use binary search to find AC time within buffer
         lower_bound = t_ab_a - time_buffer
         upper_bound = t_ab_a + time_buffer
@@ -308,9 +308,9 @@ def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_bu
 
         # Add all matches in this time range
         for i in range(idx_start, idx_end):
-            t_ac_a, t_ac_c, idx_a_ac, idx_c, d_ac = ac_sorted[i]
+            t_ac_a, t_ac_c, idx_a_ac, idx_c, d_ac, lat_a, lat_c = ac_sorted[i]
             time_diff = abs(t_ab_a - t_ac_a)
-            matches.append((t_ab_a, t_ab_b, t_ac_a, t_ac_c, time_diff))
+            matches.append((t_ab_a, t_ab_b, t_ac_a, t_ac_c, time_diff, lat_a, lat_c))
 
     return sorted(matches, key=lambda x: x[0])
 
@@ -332,66 +332,66 @@ def load_all_tle(path_to_tle, glob_file_pattern='sat00*'):
 
 
 ########################################################################################################################
-def save_all_tle(satellites, path_to_tle):
-    # save as datafile? what kind? text?
-    None
-
-
-########################################################################################################################
-def save_groundtrack_matches_csv(matches, filepath, column_labels=None):
-    """
-    Save matches as CSV file
-
-    Args:
-        matches: List of tuples (t_ab_a, t_ab_b, t_ac_a, t_ac_b, time_diff) or detailed dicts
-        filepath: Path to save the CSV file
-        column_labels: Optional custom column labels
-    """
-    if column_labels is None:
-        column_labels = ['t_ab_a', 't_ab_b', 't_ac_a', 't_ac_b', 'time_diff']
-
-    if not matches:
-        print("No matches to save")
-        return
-
-    # Check if matches are tuples or dicts
-    if isinstance(matches[0], tuple):
-        # Convert tuples to DataFrame
-        df = pd.DataFrame(matches, columns=column_labels)
-
-        # Convert timedelta to seconds for CSV compatibility
-        if 'time_diff' in df.columns:
-            if isinstance(df['time_diff'].iloc[0], timedelta):
-                df['time_diff_seconds'] = df['time_diff'].apply(lambda x: x.total_seconds())
-                df = df.drop('time_diff', axis=1)
-    else:
-        # Already dicts
-        df = pd.DataFrame(matches)
-
-        # Convert timedelta columns to seconds
-        if 'time_diff' in df.columns:
-            if isinstance(df['time_diff'].iloc[0], timedelta):
-                df['time_diff_seconds'] = df['time_diff'].apply(lambda x: x.total_seconds())
-                df = df.drop('time_diff', axis=1)
-
-    # Convert datetime columns to readable format (yyyy-mm-ddTHH:MM:SS)
-    for col in df.columns:
-        if df[col].dtype == 'datetime64[ns]' or isinstance(df[col].iloc[0], (pd.Timestamp, datetime)):
-            df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M'))
-
-    df.to_csv(filepath, index=False)
-    print(f"Saved {len(df)} matches to {filepath}")
-
+# def save_all_tle(satellites, path_to_tle):
+#     # save as datafile? what kind? text?
+#     None
+#
 
 ########################################################################################################################
-def load_groundtrack_matches_csv(filepath):
-    """Load matches from CSV file"""
-    df = pd.read_csv(filepath, parse_dates=['time_ab', 'time_ac'])
+# def save_groundtrack_matches_csv(matches, filepath, column_labels=None):
+#     """
+#     Save matches as CSV file
+#
+#     Args:
+#         matches: List of tuples (t_ab_a, t_ab_b, t_ac_a, t_ac_b, time_diff) or detailed dicts
+#         filepath: Path to save the CSV file
+#         column_labels: Optional custom column labels
+#     """
+#     if column_labels is None:
+#         column_labels = ['t_ab_a', 't_ab_b', 't_ac_a', 't_ac_b', 'time_diff']
+#
+#     if not matches:
+#         print("No matches to save")
+#         return
+#
+#     # Check if matches are tuples or dicts
+#     if isinstance(matches[0], tuple):
+#         # Convert tuples to DataFrame
+#         df = pd.DataFrame(matches, columns=column_labels)
+#
+#         # Convert timedelta to seconds for CSV compatibility
+#         if 'time_diff' in df.columns:
+#             if isinstance(df['time_diff'].iloc[0], timedelta):
+#                 df['time_diff_seconds'] = df['time_diff'].apply(lambda x: x.total_seconds())
+#                 df = df.drop('time_diff', axis=1)
+#     else:
+#         # Already dicts
+#         df = pd.DataFrame(matches)
+#
+#         # Convert timedelta columns to seconds
+#         if 'time_diff' in df.columns:
+#             if isinstance(df['time_diff'].iloc[0], timedelta):
+#                 df['time_diff_seconds'] = df['time_diff'].apply(lambda x: x.total_seconds())
+#                 df = df.drop('time_diff', axis=1)
 
-    # Convert seconds back to timedelta if present
-    if 'time_diff_seconds' in df.columns:
-        df['time_diff'] = pd.to_timedelta(df['time_diff_seconds'], unit='s')
-        df = df.drop('time_diff_seconds', axis=1)
+    # # Convert datetime columns to readable format (yyyy-mm-ddTHH:MM:SS)
+    # for col in df.columns:
+    #     if df[col].dtype == 'datetime64[ns]' or isinstance(df[col].iloc[0], (pd.Timestamp, datetime)):
+    #         df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M'))
+    #
+    # df.to_csv(filepath, index=False)
+    # print(f"Saved {len(df)} matches to {filepath}")
+    #
 
-    print(f"Loaded {len(df)} matches from {filepath}")
-    return df
+########################################################################################################################
+# def load_groundtrack_matches_csv(filepath):
+#     """Load matches from CSV file"""
+#     df = pd.read_csv(filepath, parse_dates=['time_ab', 'time_ac'])
+#
+#     # Convert seconds back to timedelta if present
+#     if 'time_diff_seconds' in df.columns:
+#         df['time_diff'] = pd.to_timedelta(df['time_diff_seconds'], unit='s')
+#         df = df.drop('time_diff_seconds', axis=1)
+#
+#     print(f"Loaded {len(df)} matches from {filepath}")
+#     return df
