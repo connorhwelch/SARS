@@ -7,6 +7,8 @@
 #SBATCH -p standard
 #SBATCH --output=logs/sat_%A_%a.out
 #SBATCH --error=logs/sat_%A_%a.err
+#SBATCH --mail-user=cw0181@uah.edu
+#SBATCH --mail-type=END,FAIL
 
 # Load any required modules
 mamba_bin=/rhome/cwelch/micromamba/envs/juice_r/bin/python  # Adjust to your HPC's module system
