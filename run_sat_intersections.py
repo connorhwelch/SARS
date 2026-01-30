@@ -100,6 +100,8 @@ def main(args):
                     except Exception as e:
                         print(
                             f"[WARN] Triple intersection failed for {key_abc} "
+                            f"Intersections for A B:    {len(intersections_ab[key_ab])}"
+                            f"Intersections for A C:    {len(intersections_ac[key_ac])}"
                             f"(AB={key_ab}, AC={key_ac}): {e}"
                         )
                         continue
