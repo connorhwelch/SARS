@@ -84,11 +84,11 @@ def main(args):
                     key_abc = f"{msi}_{modis}_{viirs}"
 
                     intersections_ab[key_ab] = groundtrack_intersections(msi_data, modis_data,
-                                                                      max_dt_sec=3600,
+                                                                      max_dt_sec=7200,
                                                                       lat_bounds=(-45,45))
 
                     intersections_ac[key_ac] = groundtrack_intersections(msi_data, viirs_data,
-                                                                      max_dt_sec=3600,
+                                                                      max_dt_sec=7200,
                                                                       lat_bounds=(-45,45))
 
                     try:
