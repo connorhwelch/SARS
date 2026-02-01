@@ -8,6 +8,7 @@ satellite_names = {
     "landsat9": 49260,
     "noaa21": 54234,
     "sentinel2c":60989,
+    "sentinel2b":42063,
 }
 
 instrument_swath_widths = {
