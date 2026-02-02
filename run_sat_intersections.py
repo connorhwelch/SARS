@@ -30,8 +30,9 @@ def args_for_batching():
     return args
 
 ########################################################################################################################
-def main(args):
-
+def main(args, timebuffer_hours=2):
+    timediff_hour = timedelta(hours=timebuffer_hours)
+    timediff_seconds = timediff_hour.total_seconds()
     sat_tracks = {}
     monthly_filtered = {}
     intersections_ab = {}
@@ -87,18 +88,18 @@ def main(args):
                     key_abc = f"{msi}_{modis}_{viirs}"
 
                     intersections_ab[key_ab] = groundtrack_intersections(msi_data, modis_data,
-                                                                      max_dt_sec=7200,
+                                                                      max_dt_sec=timediff_seconds,
                                                                       lat_bounds=(-45,45))
 
                     intersections_ac[key_ac] = groundtrack_intersections(msi_data, viirs_data,
-                                                                      max_dt_sec=7200,
+                                                                      max_dt_sec=timediff_seconds,
                                                                       lat_bounds=(-45,45))
 
                     try:
                         triple_intersections[key_abc] = triple_groundtrack_intersections(
                             intersections_ab,
                             intersections_ac,
-                            time_buffer=timedelta(hours=2),
+                            time_buffer=timediff_hour,
                         )
                         print(f"[Success] Tipple Intersection Completed For {key_abc}")
                     except Exception as e:
@@ -111,7 +112,8 @@ def main(args):
                         continue
 
                 else:
-                    raise ValueError(f'[ERROR] No data for msi {len(msi_data)} or modis {len(modis_data)} or viirs {len(viirs_data)}')
+                    raise ValueError(f'[ERROR] No data for msi {len(msi_data)}'
+                                     f' or modis {len(modis_data)} or viirs {len(viirs_data)}')
 
 
     for key, overpass_times in triple_intersections.items():
@@ -135,4 +137,4 @@ def main(args):
 
 if __name__ == '__main__':
     args = args_for_batching()
-    main(args)
+    main(args, timebuffer_hours=3)
