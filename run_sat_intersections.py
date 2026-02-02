@@ -98,7 +98,7 @@ def main(args):
                         triple_intersections[key_abc] = triple_groundtrack_intersections(
                             intersections_ab,
                             intersections_ac,
-                            time_buffer=timedelta(hours=1),
+                            time_buffer=timedelta(hours=2),
                         )
                         print(f"[Success] Tipple Intersection Completed For {key_abc}")
                     except Exception as e:
