@@ -251,7 +251,7 @@ def groundtrack_intersections(track_a, track_b, max_km=100, max_dt_sec=7200, lat
     intersections = []
 
     for i, time_a in enumerate(track_a["time"]):
-        dt = abs(track_b["time"] - t1)
+        dt = abs(track_b["time"] - time_a)
         idx = np.where(dt < timedelta(seconds=max_dt_sec))[0]
 
         for j in idx:
