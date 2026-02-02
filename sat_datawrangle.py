@@ -2,6 +2,107 @@ import numpy as np
 from datetime import datetime, timedelta, timezone
 
 ########################################################################################################################
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+
+@dataclass
+class GroundTrackIntersection:
+    """Intersection between two satellite ground tracks"""
+    time_sat_a: datetime
+    time_sat_b: datetime
+    lat_sat_a: float
+    lon_sat_a: float
+    lat_sat_b: float
+    lon_sat_b: float
+    distance_km: float
+
+    @property
+    def time_difference(self) -> timedelta:
+        """Time difference between the two satellite passes"""
+        return abs(self.time_sat_a - self.time_sat_b)
+
+    def __str__(self):
+        return (f"Intersection: Sat A at {self.time_sat_a}, "
+                f"Sat B at {self.time_sat_b}, "
+                f"distance={self.distance_km:.1f}km")
+
+
+@dataclass
+class TripleGroundTrackIntersection:
+    """Triple intersection where three satellite tracks come close together"""
+    intersection_xy: GroundTrackIntersection  # Intersection between satellites A and B
+    intersection_xz: GroundTrackIntersection  # Intersection between satellites A and C
+
+    # Simple property accessors - return single values, not dicts
+    @property
+    def sat_x_time_xy(self) -> datetime:
+        """Time of satellite A during AB intersection"""
+        return self.intersection_xy.time_sat_a
+
+    @property
+    def sat_x_time_xz(self) -> datetime:
+        """Time of satellite A during AC intersection"""
+        return self.intersection_xz.time_sat_a
+
+    @property
+    def sat_y_time_xy(self) -> datetime:
+        """Time of satellite B"""
+        return self.intersection_xy.time_sat_b
+
+    @property
+    def sat_z_time_xz(self) -> datetime:
+        """Time of satellite C"""
+        return self.intersection_xz.time_sat_b  # Note: sat_b_time in pair_ac is actually sat C
+
+    @property
+    def sat_x_position_xy(self) -> tuple:
+        """Latitude and Longitude of satellite X for satellite pair X and Y """
+        return (self.intersection_xy.lat_sat_a, self.intersection_xy.lon_sat_b)
+
+    @property
+    def sat_y_position_xy(self) -> tuple:
+        """Latitude and Longitude of satellite Y for satellite pair X and Y """
+        return (self.intersection_xy.lat_sat_b, self.intersection_xy.lon_sat_b)
+
+    @property
+    def sat_x_position_xz(self) -> tuple:
+        """Latitude and Longitude of satellite X for satellite pair X and Z """
+        return self.intersection_xz.lat_sat_a, self.intersection_xz.lon_sat_a
+
+    @property
+    def sat_z_position_xz(self) -> tuple:
+        """Latitude and Longitude of satellite Z for satellite pair X and Z """
+        return self.intersection_xz.lat_sat_b, self.intersection_xz.lon_sat_b
+
+    @property
+    def distance_km_xy(self) -> float:
+        """Average distance of both intersections"""
+        return self.intersection_xy.distance_km
+
+    @property
+    def distance_km_xz(self) -> float:
+        """Average distance of both intersections"""
+        return self.intersection_xz.distance_km
+
+    @property
+    def time_diff_xy(self) -> timedelta:
+        """Time difference between the two satellite passes X and Y """
+        return self.intersection_xy.time_difference
+
+    @property
+    def time_diff_xz(self) -> timedelta:
+        """Time difference between the two satellite passes X and Y """
+        return self.intersection_xz.time_difference
+
+    def __str__(self):
+        return (f"Triple Intersection Time at XY:{self.time_diff_xy}, XZ {self.time_diff_xz}, | "
+                f"XY={self.intersection_xy.distance_km:.1f}km, "
+                f"XZ={self.intersection_xz.distance_km:.1f}km, "
+                f"dt_XY={self.time_diff_xy}"
+                f"dt_XZ={self.time_diff_xz}")
+
+########################################################################################################################
 def get_month_bounds(start_date, month_index, months_per_job=1):
     """
     Calculate the start and end dates for a given month range

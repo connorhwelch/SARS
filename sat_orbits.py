@@ -9,6 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 from matplotlib import pyplot as plt
 from datetime import datetime
+from sat_datawrangle import GroundTrackIntersection, TripleGroundTrackIntersection
 
 
 geod = Geod(ellps="WGS84")
@@ -246,30 +247,42 @@ class HistoricalOrbitAnalyzer:
         return fig, ax
 
 ########################################################################################################################
-def groundtrack_intersections(track1, track2, max_km=100, max_dt_sec=7200, lat_bounds=(-45,45)):
+def groundtrack_intersections(track_a, track_b, max_km=100, max_dt_sec=7200, lat_bounds=(-45,45)):
     intersections = []
 
-    for i, t1 in enumerate(track1["time"]):
-        dt = abs(track2["time"] - t1)
+    for i, time_a in enumerate(track_a["time"]):
+        dt = abs(track_b["time"] - t1)
         idx = np.where(dt < timedelta(seconds=max_dt_sec))[0]
 
         for j in idx:
             # Check if both points are within 50N and 60S latitude range
-            lat1 = track1["lat"][i]
-            lat2 = track2["lat"][j]
+            lat_a = track_a["lat"][i]
+            lat_b = track_b["lat"][j]
+            lon_a = track_a["lon"][i]
+            lon_b = track_b["lon"][j]
 
-            if not (lat_bounds[0] <= lat1 <= lat_bounds[1] and lat_bounds[0] <= lat2 <= lat_bounds[1]):
+            if not (lat_bounds[0] <= lat_a <= lat_bounds[1] and lat_bounds[0] <= lat_b <= lat_bounds[1]):
                 continue
 
             d = ground_distance_km(
-                lat1, track1["lon"][i],
-                lat2, track2["lon"][j]
+                lat_a, lon_a,
+                lat_b, lon_b
             )
             if d <= max_km:
-                t2 = track2["time"][j]
-                intersections.append((t1, t2, i, j, d, lat1, lat2))
+                time_b = track_b["time"][j]
+                intersections.append(
+                    GroundTrackIntersection(
+                        time_sat_a=time_a,
+                        time_sat_b=time_b,
+                        lat_sat_a=lat_a,
+                        lon_sat_a=lon_a,
+                        lat_sat_b=lat_b,
+                        lon_sat_b=lon_b,
+                        distance_km=d,
+                ))
 
     return intersections
+
 
 ########################################################################################################################
 def ground_distance_km(lat1, lon1, lat2, lon2):
@@ -278,42 +291,50 @@ def ground_distance_km(lat1, lon1, lat2, lon2):
 
 
 ########################################################################################################################
-# def triple_groundtrack_intersections(intersections_ab, intersections_ac):
-#         time_ab = set(t for t, _, _ in intersections_ab)
-#         time_ac = set(t for t, _, _ in intersections_ac)
-#
-#         return sorted(time_ab & time_ac)
-#
-def triple_groundtrack_intersections(intersections_ab, intersections_ac, time_buffer=timedelta(hours=2)):
+def triple_groundtrack_intersections(
+        intersections_ab: list[GroundTrackIntersection],
+        intersections_ac: list[GroundTrackIntersection],
+        max_time_window: timedelta = timedelta(hours=2)
+        ) -> list[TripleGroundTrackIntersection]:
     """
-    Efficient version using sorted arrays
+    Find triple intersections where three satellites pass near the same location.
+
+    Args:
+        intersections_a_b: GroundTrackIntersections between satellites A and B
+        intersections_a_c: GroundTrackIntersections between satellites A and C
+        max_time_window: Maximum time between the two pairwise intersections
+
+    Returns:
+        List of TripleGroundTrackIntersection objects, sorted by time of A and B intersection
     """
     if not intersections_ab or not intersections_ac:
         return []
 
-    # Sort by time
-    ab_sorted = sorted(intersections_ab, key=lambda x: x[0])
-    ac_sorted = sorted(intersections_ac, key=lambda x: x[0])
+    # Sort by satellite A's time
+    sorted_ab = sorted(intersections_ab, key=lambda x: x.time_sat_a)
+    sorted_ac = sorted(intersections_ac, key=lambda x: x.time_sat_a)
 
-    matches = []
-    ac_time = np.array([t for t, _, _, _, _, _, _ in ac_sorted])
+    triple_intersections = []
+    times_ac = np.array([inter.time_sat_a for inter in sorted_ac])
 
-    for t_ab_a, t_ab_b, idx_a_ab, idx_b, d_ab, lat_a, lat_b in ab_sorted:
-        # Use binary search to find AC time within buffer
-        lower_bound = t_ab_a - time_buffer
-        upper_bound = t_ab_a + time_buffer
+    for intersection_ab in sorted_ab:
+        # Find matching intersections in the time window
+        time_lower = intersection_ab.time_sat_a - max_time_window
+        time_upper = intersection_ab.time_sat_a + max_time_window
 
-        idx_start = np.searchsorted(ac_time, lower_bound, side='left')
-        idx_end = np.searchsorted(ac_time, upper_bound, side='right')
+        start_idx = np.searchsorted(times_ac, time_lower, side='left')
+        end_idx = np.searchsorted(times_ac, time_upper, side='right')
 
-        # Add all matches in this time range
-        for i in range(idx_start, idx_end):
-            t_ac_a, t_ac_c, idx_a_ac, idx_c, d_ac, lat_a, lat_c = ac_sorted[i]
-            time_diff = abs(t_ab_a - t_ac_a)
-            matches.append((t_ab_a, t_ab_b, t_ac_a, t_ac_c, time_diff, lat_a, lat_c))
+        for idx in range(start_idx, end_idx):
+            intersection_ac = sorted_ac[idx]
 
-    return sorted(matches, key=lambda x: x[0])
+            triple_intersections.append(
+                TripleGroundTrackIntersection(
+                    intersection_xy=intersection_ab,
+                    intersection_xz=intersection_ac
+            ))
 
+    return sorted(triple_intersections, key=lambda x: x.time_diff_xy)
 
 ########################################################################################################################
 def load_all_tle(path_to_tle, glob_file_pattern='sat00*'):

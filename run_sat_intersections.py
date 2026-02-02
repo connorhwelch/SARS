@@ -4,7 +4,7 @@ from sat_orbits import *
 from sat_info import *
 import argparse
 from datetime import datetime, timedelta, timezone
-from sat_datafilter import *
+from sat_datawrangle import *
 
 
 ########################################################################################################################
@@ -40,101 +40,102 @@ def main(args, timebuffer_hours=2):
     triple_intersections = {}
 
     satellites = load_all_tle(args.data_dir)
-
     orbit_analyzer = HistoricalOrbitAnalyzer(satellites, satellite_names)
 
-    # AQUA / NOAA20 / SENTINEL-2C selection is based on qualitative analysis of nasa worldview.
-    # data is satellite position in lat, lon, datetime determined from historical TLE list from https://celestrak.org
-    # ground track uses the TLE position and time and the sgp4 algorithm to propagate the satellite both backwards
-    # and forwards in time halfway between the surrounding TLE datapoints.
-    # 300 points per TLE file is used selected based on ~ 5 minute points if the TLE is daily updating
-    # this was done to limit number of datapoints used for calculations and later intersection determination
-    #
+    # Generate ground tracks
     for sats in satellite_names.keys():
         print(f'Processing satellite track - {sats}')
         sat_tracks[sats] = orbit_analyzer.ground_track(sats)
 
-    # filter data by month
+    # Filter data by month
     start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
-    # end date determined by function and depends on the amount of processors used
-    # in this case 36 processors -> 36 months or 3 years [2023-01-01 through 2026-01-01]
     month_start, month_end = get_month_bounds_flexible(start_date, args.month_index)
 
-    # filter by the monthly data... each processor will be filtering by a different month
     for sats in satellite_names.keys():
         print(f'--- Filtering satellite data for - {sats} ---')
         monthly_filtered[sats] = filter_data_by_month(sat_tracks[sats],
                                                       month_start,
                                                       month_end)
 
-    # obtains groundtrack intersections for sentinel intersecting aqua and noaa20
-    # if sentinel intersects with these satellites it is likely that noaa20 and aqua swaths intersect within the time
-    # bound of 4 hours.
-
+    # Find triple intersections
     for msi in ['sentinel2a', 'sentinel2b', 'sentinel2c']:
         for modis in ['aqua', 'terra']:
             for viirs in ['noaa20', 'noaa21']:
-                # Safely retrieve data using dictionary
                 print(f"--- STEP --- {msi}, {modis}, {viirs} ----")
                 msi_data = monthly_filtered.get(msi)
                 modis_data = monthly_filtered.get(modis)
                 viirs_data = monthly_filtered.get(viirs)
 
-                # Check if all data exists
                 if msi_data and modis_data and viirs_data:
-
                     key_ab = f"{msi}_{modis}"
                     key_ac = f"{msi}_{viirs}"
                     key_abc = f"{msi}_{modis}_{viirs}"
 
-                    intersections_ab[key_ab] = groundtrack_intersections(msi_data, modis_data,
-                                                                      max_dt_sec=timediff_seconds,
-                                                                      lat_bounds=(-45,45))
+                    intersections_ab[key_ab] = groundtrack_intersections(
+                        msi_data, modis_data,
+                        max_dt_sec=timediff_seconds,
+                        lat_bounds=(-45, 45)
+                    )
 
-                    intersections_ac[key_ac] = groundtrack_intersections(msi_data, viirs_data,
-                                                                      max_dt_sec=timediff_seconds,
-                                                                      lat_bounds=(-45,45))
+                    intersections_ac[key_ac] = groundtrack_intersections(
+                        msi_data, viirs_data,
+                        max_dt_sec=timediff_seconds,
+                        lat_bounds=(-45, 45)
+                    )
 
                     try:
                         triple_intersections[key_abc] = triple_groundtrack_intersections(
-                            intersections_ab,
-                            intersections_ac,
-                            time_buffer=timediff_hour,
+                            intersections_ab[key_ab],
+                            intersections_ac[key_ac],
+                            max_time_window=timediff_hour,
                         )
-                        print(f"[Success] Tipple Intersection Completed For {key_abc}")
+                        print(f"[Success] Triple Intersection Completed For {key_abc}")
                     except Exception as e:
                         print(
-                            f"[WARN] Triple intersection failed for {key_abc}\n "
-                            f"       Intersections for A B:    {len(intersections_ab[key_ab])}\n"
-                            f"       Intersections for A C:    {len(intersections_ac[key_ac])}\n"
-                            f"       (AB={key_ab}, AC={key_ac}): {e}"
+                            f"[WARN] Triple intersection failed for {key_abc}\n"
+                            f"       Intersections for AB: {len(intersections_ab[key_ab])}\n"
+                            f"       Intersections for AC: {len(intersections_ac[key_ac])}\n"
+                            f"       Error: {e}"
                         )
                         continue
-
                 else:
-                    raise ValueError(f'[ERROR] No data for msi {len(msi_data)}'
-                                     f' or modis {len(modis_data)} or viirs {len(viirs_data)}')
+                    raise ValueError(
+                        f'[ERROR] Missing data - msi: {len(msi_data) if msi_data else 0}, '
+                        f'modis: {len(modis_data) if modis_data else 0}, '
+                        f'viirs: {len(viirs_data) if viirs_data else 0}'
+                    )
 
+    # Save results to CSV
+    for key, matches in triple_intersections.items():
+        if not matches:
+            print(f"[WARN] No matches found for {key}, skipping CSV creation")
+            continue
 
-    for key, overpass_times in triple_intersections.items():
         msi_sat_name, modis_sat_name, viirs_sat_name = key.split('_')
-        df = pd.DataFrame(overpass_times,
-                          columns=[f't_{msi_sat_name}_{modis_sat_name}',
-                                   f't_{modis_sat_name}_{msi_sat_name}',
-                                   f't_{msi_sat_name}_{viirs_sat_name}',
-                                   f't_{viirs_sat_name}_{msi_sat_name}',
-                                   'time_diff']
-                          )
-        for col in df.columns[0:-1]:
-            df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M'))
 
-        df.to_csv(Path(args.output_dir) / f'{key}-gtmatch_{args.month_index}.csv')
-        print(f"[Success] Data Saved - output location: {args.output_dir}")
+        # Convert dataclass objects to dictionaries
+        data_dicts = [
+            match.to_dict(msi_sat_name, modis_sat_name, viirs_sat_name)
+            for match in matches
+        ]
 
+        # Create DataFrame from list of dictionaries
+        df = pd.DataFrame(data_dicts)
+
+        # Format datetime columns
+        time_columns = [col for col in df.columns if col.startswith('t_')]
+        for col in time_columns:
+            df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M:%S'))
+
+        # Save to CSV
+        output_path = Path(args.output_dir) / f'{key}-gtmatch_{args.month_index}.csv'
+        df.to_csv(output_path, index=False)
+        print(f"[Success] Data saved to: {output_path}")
+        print(f"          Rows: {len(df)}, Columns: {len(df.columns)}")
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################
 
 if __name__ == '__main__':
     args = args_for_batching()
-    main(args, timebuffer_hours=3)
+    main(args, timebuffer_hours=2)
