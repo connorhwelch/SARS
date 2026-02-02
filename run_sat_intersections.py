@@ -50,6 +50,7 @@ def main(args):
     # this was done to limit number of datapoints used for calculations and later intersection determination
     #
     for sats in satellite_names.keys():
+        print(f'Processing satellite track - {sats}')
         sat_tracks[sats] = orbit_analyzer.ground_track(sats)
 
     # filter data by month
@@ -60,6 +61,7 @@ def main(args):
 
     # filter by the monthly data... each processor will be filtering by a different month
     for sats in satellite_names.keys():
+        print(f'--- Filtering satellite data for - {sats} ---')
         monthly_filtered[sats] = filter_data_by_month(sat_tracks[sats],
                                                       month_start,
                                                       month_end)
@@ -72,6 +74,7 @@ def main(args):
         for modis in ['aqua', 'terra']:
             for viirs in ['noaa20', 'noaa21']:
                 # Safely retrieve data using dictionary
+                print(f"--- STEP --- {msi}, {modis}, {viirs} ----")
                 msi_data = monthly_filtered.get(msi)
                 modis_data = monthly_filtered.get(modis)
                 viirs_data = monthly_filtered.get(viirs)
@@ -97,17 +100,18 @@ def main(args):
                             intersections_ac,
                             time_buffer=timedelta(hours=1),
                         )
+                        print(f"[Success] Tipple Intersection Completed For {key_abc}")
                     except Exception as e:
                         print(
-                            f"[WARN] Triple intersection failed for {key_abc} "
-                            f"Intersections for A B:    {len(intersections_ab[key_ab])}"
-                            f"Intersections for A C:    {len(intersections_ac[key_ac])}"
-                            f"(AB={key_ab}, AC={key_ac}): {e}"
+                            f"[WARN] Triple intersection failed for {key_abc}\n "
+                            f"       Intersections for A B:    {len(intersections_ab[key_ab])}\n"
+                            f"       Intersections for A C:    {len(intersections_ac[key_ac])}\n"
+                            f"       (AB={key_ab}, AC={key_ac}): {e}"
                         )
                         continue
 
                 else:
-                    raise ValueError(f'No data for msi {len(msi_data)} or modis {len(modis_data)} or viirs {len(viirs_data)}')
+                    raise ValueError(f'[ERROR] No data for msi {len(msi_data)} or modis {len(modis_data)} or viirs {len(viirs_data)}')
 
 
     for key, overpass_times in triple_intersections.items():
@@ -123,7 +127,7 @@ def main(args):
             df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M'))
 
         df.to_csv(Path(args.output_dir) / f'{key}-gtmatch_{args.month_index}.csv')
-
+        print(f"[Success] Data Saved - output location: {args.output_dir}")
 
 ########################################################################################################################
 ########################################################################################################################
