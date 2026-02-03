@@ -138,4 +138,4 @@ def main(args, timebuffer_hours=2):
 
 if __name__ == '__main__':
     args = args_for_batching()
-    main(args, timebuffer_hours=2)
+    main(args, timebuffer_hours=3)
