@@ -94,6 +94,27 @@ class TripleGroundTrackIntersection:
     def time_diff_xz(self) -> timedelta:
         """Time difference between the two satellite passes X and Y """
         return self.intersection_xz.time_difference
+    
+    def to_dict(self, sat_x: str, sat_y: str, sat_z: str) -> dict:
+        """Convert to dictionary with custom column names"""
+        time_diff = abs(self.sat_x_time_xy - self.sat_x_time_xz)
+        return {
+            f't_{sat_x}_{sat_y}': self.sat_x_time_xy,
+            f't_{sat_y}_{sat_x}': self.sat_y_time_xy,
+            f't_{sat_x}_{sat_z}': self.sat_x_time_xz,
+            f't_{sat_z}_{sat_x}': self.sat_z_time_xz,
+            'time_diff': time_diff,
+            f'distance_{sat_x}{sat_y}_km': self.distance_km_xy,
+            f'distance_{sat_x}{sat_z}_km': self.distance_km_xz,
+            f'lat_{sat_x}_{sat_x}{sat_y}': self.sat_x_position_xy[0],
+            f'lon_{sat_x}_{sat_x}{sat_y}': self.sat_x_position_xy[1],
+            f'lat_{sat_y}_{sat_x}{sat_y}': self.sat_y_position_xy[0],
+            f'lon_{sat_y}_{sat_x}{sat_y}': self.sat_y_position_xy[1],
+            f'lat_{sat_x}_{sat_x}{sat_z}': self.sat_x_position_xz[0],
+            f'lon_{sat_x}_{sat_x}{sat_z}': self.sat_x_position_xz[1],
+            f'lat_{sat_z}_{sat_x}{sat_z}': self.sat_z_position_xz[0],
+            f'lon_{sat_z}_{sat_x}{sat_z}': self.sat_z_position_xz[1],
+        }
 
     def __str__(self):
         return (f"Triple Intersection Time at XY:{self.time_diff_xy}, XZ {self.time_diff_xz}, | "
