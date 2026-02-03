@@ -128,7 +128,8 @@ def main(args, timebuffer_hours=2):
             df[col] = df[col].apply(lambda x: x.strftime('%Y-%m-%dT%H:%M:%S'))
 
         # Save to CSV
-        output_path = Path(args.output_dir) / f'{key}-gtmatch_{args.month_index}.csv'
+        output_path = (Path(args.output_dir) /
+                       f'{key}-gtmatch_{args.month_index}_tbuff_{timebuffer_hours}hr.csv')
         df.to_csv(output_path, index=False)
         print(f"[Success] Data saved to: {output_path}")
         print(f"          Rows: {len(df)}, Columns: {len(df.columns)}")
@@ -138,4 +139,4 @@ def main(args, timebuffer_hours=2):
 
 if __name__ == '__main__':
     args = args_for_batching()
-    main(args, timebuffer_hours=3)
+    main(args, timebuffer_hours=2)
