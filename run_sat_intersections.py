@@ -30,7 +30,7 @@ def args_for_batching():
     return args
 
 ########################################################################################################################
-def main(args, timebuffer_hours=2):
+def main(args, timebuffer_hours=2, sep_dist_km=100.0):
     timediff_hour = timedelta(hours=timebuffer_hours)
     timediff_seconds = timediff_hour.total_seconds()
     sat_tracks = {}
@@ -74,12 +74,14 @@ def main(args, timebuffer_hours=2):
                     intersections_ab[key_ab] = groundtrack_intersections(
                         msi_data, modis_data,
                         max_dt_sec=timediff_seconds,
+                        max_km=sep_dist_km,
                         lat_bounds=(-45, 45)
                     )
 
                     intersections_ac[key_ac] = groundtrack_intersections(
                         msi_data, viirs_data,
                         max_dt_sec=timediff_seconds,
+                        max_km=sep_dist_km,
                         lat_bounds=(-45, 45)
                     )
 
@@ -88,6 +90,7 @@ def main(args, timebuffer_hours=2):
                             intersections_ab[key_ab],
                             intersections_ac[key_ac],
                             max_time_window=timediff_hour,
+                            max_distance_km=sep_dist_km
                         )
                         print(f"[Success] Triple Intersection Completed For {key_abc}")
                     except Exception as e:
@@ -139,4 +142,4 @@ def main(args, timebuffer_hours=2):
 
 if __name__ == '__main__':
     args = args_for_batching()
-    main(args, timebuffer_hours=1)
+    main(args, timebuffer_hours=1, sep_dist_km=100.0)

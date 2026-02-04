@@ -294,15 +294,17 @@ def ground_distance_km(lat1, lon1, lat2, lon2):
 def triple_groundtrack_intersections(
         intersections_ab: list[GroundTrackIntersection],
         intersections_ac: list[GroundTrackIntersection],
-        max_time_window: timedelta = timedelta(hours=2)
-        ) -> list[TripleGroundTrackIntersection]:
+        max_time_window: timedelta = timedelta(hours=2),
+        max_distance_km: float = 100.0  # Maximum distance between intersection points
+) -> list[TripleGroundTrackIntersection]:
     """
     Find triple intersections where three satellites pass near the same location.
 
     Args:
-        intersections_a_b: GroundTrackIntersections between satellites A and B
-        intersections_a_c: GroundTrackIntersections between satellites A and C
+        intersections_ab: GroundTrackIntersections between satellites A and B
+        intersections_ac: GroundTrackIntersections between satellites A and C
         max_time_window: Maximum time between the two pairwise intersections
+        max_distance_km: Maximum distance (in km) between the two intersection points
 
     Returns:
         List of TripleGroundTrackIntersection objects, sorted by time of A and B intersection
@@ -328,11 +330,22 @@ def triple_groundtrack_intersections(
         for idx in range(start_idx, end_idx):
             intersection_ac = sorted_ac[idx]
 
-            triple_intersections.append(
-                TripleGroundTrackIntersection(
-                    intersection_xy=intersection_ab,
-                    intersection_xz=intersection_ac
-            ))
+            # Calculate distance between the two intersection points
+            # could do an average lat lon between satellite tracks in future
+            distance_km = ground_distance_km(
+                intersection_ab.lon_sat_a,
+                intersection_ab.lat_sat_a,
+                intersection_ac.lon_sat_a,
+                intersection_ac.lat_sat_a
+            )
+
+            # Only add if the intersection points are close enough spatially
+            if distance_km <= max_distance_km:
+                triple_intersections.append(
+                    TripleGroundTrackIntersection(
+                        intersection_xy=intersection_ab,
+                        intersection_xz=intersection_ac
+                    ))
 
     return sorted(triple_intersections, key=lambda x: x.time_diff_xy)
 
