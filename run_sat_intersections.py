@@ -45,7 +45,7 @@ def main(args, timebuffer_hours=2, sep_dist_km=100.0):
     # Generate ground tracks
     for sats in satellite_names.keys():
         print(f'Processing satellite track - {sats}')
-        sat_tracks[sats] = orbit_analyzer.ground_track(sats)
+        sat_tracks[sats] = orbit_analyzer.ground_track(sats, daytime_only=True)
 
     # Filter data by month
     start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
@@ -142,4 +142,4 @@ def main(args, timebuffer_hours=2, sep_dist_km=100.0):
 
 if __name__ == '__main__':
     args = args_for_batching()
-    main(args, timebuffer_hours=2, sep_dist_km=100.0)
+    main(args, timebuffer_hours=3, sep_dist_km=300.0)
