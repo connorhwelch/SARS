@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="C:\Users\FruitSnackz\mambaforge\envs\juice_r" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="C:\Users\FruitSnackz\mambaforge\envs\juice_r" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="$USER_HOME$/micromamba/envs/juice_r" project-jdk-type="Python SDK" />
 </project>

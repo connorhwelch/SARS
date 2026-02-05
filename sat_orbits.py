@@ -24,7 +24,7 @@ class HistoricalOrbitAnalyzer:
         """
         self.ts = load.timescale()
         self.sat_definitions = sat_definitions
-
+        self.eph = load('de421.bsp')          # Load ephemeris for sun position calculations
         self.sats_by_norad = defaultdict(list)
         for sat in satellites:
             self.sats_by_norad[sat.model.satnum].append(sat)
@@ -38,7 +38,7 @@ class HistoricalOrbitAnalyzer:
         norad = self.sat_definitions[name]
         return self.sats_by_norad[norad]
 
-    def ground_track(self, name, points_per_tle=300, max_days_last=7.0):
+    def ground_track(self, name, points_per_tle=300, max_days_last=7.0, daytime_only=False):
         """Calculate satellite ground track propagation"""
         sats = self.get_satellite_history(name)
 
@@ -57,11 +57,19 @@ class HistoricalOrbitAnalyzer:
                 np.linspace(t0.tt, t_end.tt, points_per_tle)
             )
 
-            sp = wgs84.subpoint_of(sat.at(t))
-            lat.extend(sp.latitude.degrees)
-            lon.extend(sp.longitude.degrees)
-            # heights.extend(sp.elevation.m)
-            time.extend(t.utc_datetime())
+            # Check if satellite is sunlit (daytime)
+            if daytime_only:
+                sunlit = sat.at(t).is_sunlit(self.eph)
+                # Filter to only sunlit positions
+                t_filtered = t[sunlit]
+            else:
+                t_filtered = t
+
+            if len(t_filtered) > 0:
+                sp = wgs84.subpoint_of(sat.at(t_filtered))
+                lat.extend(sp.latitude.degrees)
+                lon.extend(sp.longitude.degrees)
+                time.extend(t_filtered.utc_datetime())
 
         return {'lat': np.array(lat), 'lon': np.array(lon), 'time': np.array(time)}
 
