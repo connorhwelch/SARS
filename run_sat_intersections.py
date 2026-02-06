@@ -132,7 +132,7 @@ def main(args, timebuffer_hours=2, sep_dist_km=100.0):
 
         # Save to CSV
         output_path = (Path(args.output_dir) /
-                       f'{key}-gtmatch_{args.month_index}_tbuff_{timebuffer_hours}hr.csv')
+                       f'{key}-gtmatch_{args.month_index}_tbuff_{timebuffer_hours}hr_{sep_dist_km}km.csv')
         df.to_csv(output_path, index=False)
         print(f"[Success] Data saved to: {output_path}")
         print(f"          Rows: {len(df)}, Columns: {len(df.columns)}")
@@ -143,5 +143,5 @@ def main(args, timebuffer_hours=2, sep_dist_km=100.0):
 if __name__ == '__main__':
     args = args_for_batching()
     main(args,
-         timebuffer_hours=1,
-         sep_dist_km=300.0)
+         timebuffer_hours=2,
+         sep_dist_km=145)
