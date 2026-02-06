@@ -143,5 +143,5 @@ def main(args, timebuffer_hours=2, sep_dist_km=100.0):
 if __name__ == '__main__':
     args = args_for_batching()
     main(args,
-         timebuffer_hours=2,
+         timebuffer_hours=1,
          sep_dist_km=300.0)
