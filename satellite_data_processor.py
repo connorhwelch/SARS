@@ -12,7 +12,8 @@ def process_satellite_data(
         end_time: str,
         satellite_name: str,
         satellite_instrument: str,
-        load_recipes: list,
+        load_recipes: list = None,
+        auto_correction: bool = True,
         save_path: Path = None,
         correction_type: str = "both",
         satpy_resample_option: str = "native",
@@ -110,6 +111,8 @@ def process_satellite_data(
     for label in correction_types:
         scene = Scene(filenames=myfiles)
 
+        if load_recipes is None and auto_correction:
+            load_recipes = _generate_load_recipes(scene= scene)
         # Load datasets
         for bands, modifiers in load_recipes:
             scene.load(bands, modifiers=modifiers)
