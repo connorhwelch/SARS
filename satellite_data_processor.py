@@ -1,24 +1,9 @@
 
-
-# # tokens for aquiring data from earthdata and europeans
-# ed_token =
-# eo_token =
-# 
-# 
-# def download_modis_granules(time_start, time_end, satellite_name):
-#     # download granules based on temporal bounds for modis
-#     # satellite name important for which satellite to download from
-#     return raw_modis_data_path
-# 
-# def download_modis_geolocation(time_start, time_end, satellite_name):
-#     return raw_modis_geolocation_path
-# 
-# def download_viirs_granules(time_start, time_end, satellite_name):
-#     return raw_viirs_data_path
-# 
-# def download_msi_granules(time_start, time_end, satellite_name):
-#     return raw_msi_data_path
-
+from pathlib import Path
+from datetime import datetime
+from satpy import Scene, find_files_and_readers
+import xarray as xr
+from typing import Dict
 
 def process_satellite_data(
         data_dir: Path,
@@ -32,7 +17,7 @@ def process_satellite_data(
         correction_type: str = "both",
         satpy_resample_option: str = "native",
         target_area=None,
-):
+        ) -> Dict[str, xr.Dataset]:
     """Process satellite data using SatPy and return xarray datasets.
 
     Args:
@@ -82,10 +67,8 @@ def process_satellite_data(
     Example:
         >>> from pathlib import Path
         >>> data_dir = Path('/data/modis_data')
-        >>> load_recipes = [
-                            (['1', '3', '4'], ['sunz_corrected', 'rayleigh_corrected'])
-                            (['true_color'], []
-                            ]
+        >>> load_recipes = [(['1', '3', '4'], ['sunz_corrected', 'rayleigh_corrected']),
+                            (['true_color'], [])]
         >>> datasets = process_satellite_data(
         ...     data_dir=data_dir,
         ...     satpy_reader='modis_l1b',
@@ -105,7 +88,7 @@ def process_satellite_data(
 
     # Find files
     myfiles = find_files_and_readers(
-        base_dir=data_dir,
+        base_dir=str(data_dir),
         start_time=datetime.strptime(start_time, "%Y%m%dT%H%M"),
         end_time=datetime.strptime(end_time, "%Y%m%dT%H%M"),
         reader=satpy_reader
@@ -134,15 +117,15 @@ def process_satellite_data(
         # Resample if not using native resolution
         if satpy_resample_option == "native":
             # Native resampling doesn't require target_area
-            scene.resample(resampler="native")
+            resampled_scene = scene.resample(resampler="native")
         else:
             # Non-native resampling requires target_area
             if target_area is None:
                 raise ValueError(f"target_area must be provided when using '{satpy_resample_option}' resampling")
-            scene.resample(destination=target_area, resampler=satpy_resample_option)
+            resampled_scene = scene.resample(destination=target_area, resampler=satpy_resample_option)
 
         # Convert to xarray
-        xr_dataset = scene.to_xarray()
+        xr_dataset = resampled_scene.to_xarray()
 
         # Store dataset
         dataset_name = f'{satellite_name}_{satellite_instrument}_{label}'
