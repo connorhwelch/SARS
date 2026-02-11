@@ -58,7 +58,7 @@ def main(args, timebuffer_hours=3, sep_dist_km=300.0):
                                                       month_end)
 
     # Find triple intersections
-    for msi in ['sentinel2a', 'sentinel2b', 'sentinel2c']:
+    for msi in ['sentinel_2a', 'sentinel_2b', 'sentinel_2c']:
         for modis in ['aqua', 'terra']:
             for viirs in ['noaa20', 'noaa21']:
                 print(f"--- STEP --- {msi}, {modis}, {viirs} ----")
