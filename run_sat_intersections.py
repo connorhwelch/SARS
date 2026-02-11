@@ -30,7 +30,7 @@ def args_for_batching():
     return args
 
 ########################################################################################################################
-def main(args, timebuffer_hours=2, sep_dist_km=100.0):
+def main(args, timebuffer_hours=3, sep_dist_km=300.0):
     timediff_hour = timedelta(hours=timebuffer_hours)
     timediff_seconds = timediff_hour.total_seconds()
     sat_tracks = {}
@@ -143,5 +143,5 @@ def main(args, timebuffer_hours=2, sep_dist_km=100.0):
 if __name__ == '__main__':
     args = args_for_batching()
     main(args,
-         timebuffer_hours=2,
-         sep_dist_km=145)
+         timebuffer_hours=3,
+         sep_dist_km=300)
