@@ -38,29 +38,56 @@ class HistoricalOrbitAnalyzer:
         norad = self.sat_definitions[name]
         return self.sats_by_norad[norad]
 
-    def ground_track(self, name, points_per_tle=300, max_days_last=7.0, daytime_only=False):
-        """Calculate satellite ground track propagation"""
+    def ground_track(
+            self,
+            name,
+            max_points = 1440,
+            max_days_last=1.0,
+            daytime_only=False,
+    ):
+        """
+        Calculate satellite ground track propagation with full coverage.
+
+        Args:
+            name: Satellite name
+            max_days_last: Days to propagate forward for the last TLE
+            daytime_only: Only include sunlit positions
+
+        Returns:
+            Dictionary with 'lat', 'lon', 'time' arrays
+            :param max_points: (minutes) max number of points to calculate for satellite propogation
+                               default is 1 day or 1440 minutes
+        """
         sats = self.get_satellite_history(name)
 
-        lat, lon, heights, time = [], [], [], []
+        lat, lon, time = [], [], []
 
         for i, sat in enumerate(sats):
-            t0 = sat.epoch
+            initial_epoch_time = sat.epoch
 
             if i < len(sats) - 1:
-                t1 = sats[i + 1].epoch
-                t_end = self.ts.tt_jd(0.5 * (t0.tt + t1.tt))
+                # Propagate to the NEXT TLE's epoch (full coverage, no gap)
+                next_epoch_time = sats[i + 1].epoch
+                end_propagation_time = next_epoch_time  # ← Use full epoch, not midpoint
             else:
-                t_end = self.ts.tt_jd(t0.tt + max_days_last)
+                # TODO get rid of max_days_last and put in terms of hours or remove altogether
+                # Last TLE: propagate forward max_days_last
+                end_propagation_time = self.ts.tt_jd(initial_epoch_time.tt + max_days_last)
 
-            t = self.ts.tt_jd(
-                np.linspace(t0.tt, t_end.tt, points_per_tle)
-            )
+            time_diff = end_propagation_time.utc_datetime() - initial_epoch_time.utc_datetime()
 
-            # Check if satellite is sunlit (daytime)
+            points_to_calculate = np.int16(time_diff.total_seconds() // 60) # Calculate number of points for 1 minute position updates
+
+            # protections for numer of tle points possible
+            if points_to_calculate > max_points:
+                points_to_calculate = max_points
+
+            # Generate time array
+            t = self.ts.tt_jd(np.linspace(initial_epoch_time.tt, end_propagation_time.tt, points_to_calculate))
+
+            # Daytime filtering
             if daytime_only:
                 sunlit = sat.at(t).is_sunlit(self.eph)
-                # Filter to only sunlit positions
                 t_filtered = t[sunlit]
             else:
                 t_filtered = t
@@ -255,7 +282,7 @@ class HistoricalOrbitAnalyzer:
         return fig, ax
 
 ########################################################################################################################
-def groundtrack_intersections(track_a, track_b, max_km=100, max_dt_sec=7200, lat_bounds=(-45,45)):
+def groundtrack_intersections(track_a, track_b, max_km=300, max_dt_sec=7200, lat_bounds=(-60,60)):
     intersections = []
 
     for i, time_a in enumerate(track_a["time"]):
@@ -265,8 +292,9 @@ def groundtrack_intersections(track_a, track_b, max_km=100, max_dt_sec=7200, lat
         for j in idx:
             # Check if both points are within 50N and 60S latitude range
             lat_a = track_a["lat"][i]
-            lat_b = track_b["lat"][j]
             lon_a = track_a["lon"][i]
+
+            lat_b = track_b["lat"][j]
             lon_b = track_b["lon"][j]
 
             if not (lat_bounds[0] <= lat_a <= lat_bounds[1] and lat_bounds[0] <= lat_b <= lat_bounds[1]):
