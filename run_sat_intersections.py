@@ -143,6 +143,6 @@ def main(args, timebuffer_hours=3, sep_dist_km=300.0, latitude_restrictions=None
 if __name__ == '__main__':
     args = args_for_batching()
     main(args,
-         timebuffer_hours=1,
-         sep_dist_km=300,
+         timebuffer_hours=2,
+         sep_dist_km=150,
          latitude_restrictions=(-60, 60))
