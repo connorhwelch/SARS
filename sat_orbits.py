@@ -43,7 +43,7 @@ class HistoricalOrbitAnalyzer:
             name,
             max_points = 1440,
             max_days_last=1.0,
-            daytime_only=False,
+            daytime_only=True,
     ):
         """
         Calculate satellite ground track propagation with full coverage.

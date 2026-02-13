@@ -30,7 +30,7 @@ def args_for_batching():
     return args
 
 ########################################################################################################################
-def main(args, timebuffer_hours=3, sep_dist_km=300.0, latitude_restrictions=None):
+def main(args, timebuffer_hours=3, sep_dist_km=300.0, daytime_only=True, latitude_restrictions=None):
     timediff_hour = timedelta(hours=timebuffer_hours)
     timediff_seconds = timediff_hour.total_seconds()
     sat_tracks = {}
@@ -45,7 +45,7 @@ def main(args, timebuffer_hours=3, sep_dist_km=300.0, latitude_restrictions=None
     # Generate ground tracks
     for sats in satellite_names.keys():
         print(f'Processing satellite track - {sats}')
-        sat_tracks[sats] = orbit_analyzer.ground_track(sats, daytime_only=True)
+        sat_tracks[sats] = orbit_analyzer.ground_track(sats, daytime_only=daytime_only)
 
     # Filter data by month
     start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
@@ -143,6 +143,7 @@ def main(args, timebuffer_hours=3, sep_dist_km=300.0, latitude_restrictions=None
 if __name__ == '__main__':
     args = args_for_batching()
     main(args,
-         timebuffer_hours=2,
-         sep_dist_km=150,
-         latitude_restrictions=(-60, 60))
+         timebuffer_hours=3,
+         sep_dist_km=300,
+         daytime_only=True,
+         latitude_restrictions=(-50, 50))
