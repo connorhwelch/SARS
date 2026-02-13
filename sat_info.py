@@ -9,6 +9,7 @@ satellite_names = {
     "noaa21": 54234,
     "sentinel2c":60989,
     "sentinel2b":42063,
+    "snpp":37849,
 }
 
 instrument_swath_widths = {

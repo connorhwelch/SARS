@@ -30,7 +30,7 @@ def args_for_batching():
     return args
 
 ########################################################################################################################
-def main(args, timebuffer_hours=3, sep_dist_km=300.0):
+def main(args, timebuffer_hours=3, sep_dist_km=300.0, latitude_restrictions=None):
     timediff_hour = timedelta(hours=timebuffer_hours)
     timediff_seconds = timediff_hour.total_seconds()
     sat_tracks = {}
@@ -60,7 +60,7 @@ def main(args, timebuffer_hours=3, sep_dist_km=300.0):
     # Find triple intersections
     for msi in ['sentinel2a', 'sentinel2b', 'sentinel2c']:
         for modis in ['aqua', 'terra']:
-            for viirs in ['noaa20', 'noaa21']:
+            for viirs in ['noaa20', 'noaa21', "snpp"]:
                 print(f"--- STEP --- {msi}, {modis}, {viirs} ----")
                 msi_data = monthly_filtered.get(msi)
                 modis_data = monthly_filtered.get(modis)
@@ -75,14 +75,14 @@ def main(args, timebuffer_hours=3, sep_dist_km=300.0):
                         msi_data, modis_data,
                         max_dt_sec=timediff_seconds,
                         max_km=sep_dist_km,
-                        lat_bounds=(-45, 45)
+                        lat_bounds=latitude_restrictions
                     )
 
                     intersections_ac[key_ac] = groundtrack_intersections(
                         msi_data, viirs_data,
                         max_dt_sec=timediff_seconds,
                         max_km=sep_dist_km,
-                        lat_bounds=(-45, 45)
+                        lat_bounds=latitude_restrictions
                     )
 
                     try:
@@ -143,5 +143,6 @@ def main(args, timebuffer_hours=3, sep_dist_km=300.0):
 if __name__ == '__main__':
     args = args_for_batching()
     main(args,
-         timebuffer_hours=3,
-         sep_dist_km=300)
+         timebuffer_hours=1,
+         sep_dist_km=300,
+         latitude_restrictions=(-60, 60))
