@@ -146,4 +146,4 @@ if __name__ == '__main__':
          timebuffer_hours=3,
          sep_dist_km=300,
          daytime_only=True,
-         latitude_restrictions=(-50, 50))
+         latitude_restrictions=(-65, 65))
