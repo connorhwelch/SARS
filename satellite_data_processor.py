@@ -1,17 +1,22 @@
 
 from pathlib import Path
 from datetime import datetime
+
+from fiona.crs import defaultdict
 from satpy import Scene, find_files_and_readers
 import xarray as xr
 from typing import Dict
 
+from sat_info import *
+
 def process_satellite_data(
-        data_dir: Path,
-        satpy_reader: str,
-        start_time: str,
-        end_time: str,
+        scene: Scene,
+        # satpy_reader: str,
+        # start_time: str,
+        # end_time: str,
         satellite_name: str,
         satellite_instrument: str,
+        identifier: str = None,
         load_recipes: list = None,
         auto_correction: bool = True,
         save_path: Path = None,
@@ -22,8 +27,7 @@ def process_satellite_data(
     """Process satellite data using SatPy and return xarray datasets.
 
     Args:
-        data_dir: Base directory containing satellite data files
-        satpy_reader: Name of the SatPy reader to use (e.g., 'modis_l1b', 'viirs_l1b', 'msi_safe')
+        scene: Base directory containing satellite data files
         start_time: Start time for file search in format 'YYYYMMDDTHHMM'
         end_time: End time for file search in format 'YYYYMMDDTHHMM'
         satellite_name: Name of the satellite (e.g., 'Aqua', 'NOAA-20', 'Sentinel-2b')
@@ -38,7 +42,7 @@ def process_satellite_data(
                 GEOMETRY  = ["solar_zenith_angle"]
                 load_recipes = [
                     (VISIBLE, ["rayleigh_corrected", "sunz_corrected"]),
-                    (GEOMETRY, ["solar_zenith_angle"]),
+                    (GEOMETRY, None),
                     (["5"], ["sunz_corrected"]),
                 ]
         save_path: Optional directory path where NetCDF files will be saved.
@@ -70,33 +74,36 @@ def process_satellite_data(
         >>> data_dir = Path('/data/modis_data')
         >>> load_recipes = [(['1', '3', '4'], ['sunz_corrected', 'rayleigh_corrected']),
                             (['true_color'], [])]
+        >>> myfiles = file_processor()
+        >>> satpy_scene = Scene(filenames=myfiles)
         >>> datasets = process_satellite_data(
-        ...     data_dir=data_dir,
+        ...     scene=satpy_scene),
         ...     satpy_reader='modis_l1b',
-        ...     start_time='20260101T1230',
-        ...     end_time='20260101T1230',
+        # ...     start_time='20260101T1230',
+        # ...     end_time='20260101T1230',
         ...     satellite_name='Aqua',
         ...     satellite_instrument='MODIS',
         ...     load_recipes=load_recipes,
         ...     save_path=Path('/output'),
         ...     correction_type='both'
         ... )
+        :param identifier:
     """
     # Validate correction_type
     valid_corrections = {"uncorrected", "corrected", "both"}
     if correction_type not in valid_corrections:
         raise ValueError(f"correction_type must be one of {valid_corrections}")
 
-    # Find files
-    myfiles = find_files_and_readers(
-        base_dir=str(data_dir),
-        start_time=datetime.strptime(start_time, "%Y%m%dT%H%M"),
-        end_time=datetime.strptime(end_time, "%Y%m%dT%H%M"),
-        reader=satpy_reader
-    )
-
-    if not myfiles:
-        raise ValueError(f"No files found in {data_dir} for the specified time range")
+    # # Find files
+    # myfiles = find_files_and_readers(
+    #     base_dir=str(data_dir),
+    #     start_time=datetime.strptime(start_time, "%Y%m%dT%H%M"),
+    #     end_time=datetime.strptime(end_time, "%Y%m%dT%H%M"),
+    #     reader=satpy_reader
+    # )
+    #
+    # if not myfiles:
+    #     raise ValueError(f"No files found in {data_dir} for the specified time range")
 
     # Determine which correction types to process
     correction_types = []
@@ -109,10 +116,9 @@ def process_satellite_data(
     all_data = {}
 
     for label in correction_types:
-        scene = Scene(filenames=myfiles)
 
-        if load_recipes is None and auto_correction:
-            load_recipes = _generate_load_recipes(scene= scene)
+        # if load_recipes is None and auto_correction:
+        #     load_recipes = _generate_load_recipes(scene=scene)
         # Load datasets
         for bands, modifiers in load_recipes:
             scene.load(bands, modifiers=modifiers)
@@ -120,7 +126,7 @@ def process_satellite_data(
         # Resample if not using native resolution
         if satpy_resample_option == "native":
             # Native resampling doesn't require target_area
-            resampled_scene = scene.resample(resampler="native")
+            resampled_scene = scene.resample(scene.coarsest_area(), resampler="native")
         else:
             # Non-native resampling requires target_area
             if target_area is None:
@@ -128,7 +134,7 @@ def process_satellite_data(
             resampled_scene = scene.resample(destination=target_area, resampler=satpy_resample_option)
 
         # Convert to xarray
-        xr_dataset = resampled_scene.to_xarray()
+        xr_dataset = resampled_scene.to_xarray(include_lonlats=True)
 
         # Store dataset
         dataset_name = f'{satellite_name}_{satellite_instrument}_{label}'
@@ -137,7 +143,46 @@ def process_satellite_data(
         # Save if requested
         if save_path is not None:
             save_path.mkdir(parents=True, exist_ok=True)
-            output_file = save_path / f'{dataset_name}_{start_time}-{end_time}.nc'
+            output_file = save_path / f'{dataset_name}_{identifier}.nc'
             xr_dataset.to_netcdf(output_file)
 
     return all_data
+
+
+# def scene_processor(file_list: list, satpy_reader: str, start_time: datetime, end_time: datetime,):
+#
+#     sat_scenes = defaultdict()
+#          myfiles = file_list
+#
+
+
+
+
+        # if  satpy_reader == 'msi_safe':
+        #     groups = defaultdict(list)
+        #     for f in myfiles[data_info['reader']]:
+        #         safe_name = Path(f).parts[6]  # grabs SAFE directory name
+        #         groups[safe_name].append(f)
+        #     msi_scenes = {}
+        #     for safe, safe_files in groups.items():
+        #         msi_scene = Scene(filenames=safe_files, reader='msi_safe')
+        #         process_satellite_data(msi_scene,
+        #                                )
+        # else:
+        #     sat_scene = Scene(myfiles)
+
+
+
+def extract_identifier(file_list):
+    fname = Path(file_list[0]).name
+
+    if fname.startswith("S2"):
+        return fname.split('_')[-2]  # Sentinel-2
+
+    elif ".A" in fname:
+        parts = fname.split('.')
+        return parts[1] + "_" + parts[2]  # MODIS / VIIRS
+
+    else:
+        raise ValueError("Unknown file format")
+
