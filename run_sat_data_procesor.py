@@ -9,7 +9,12 @@ from sat_info import *
 from collections import defaultdict
 
 import warnings
-warnings.filterwarnings("ignore", category=FutureWarning, module="dask")
+warnings.filterwarnings("ignore")
+
+import logging
+logging.basicConfig(level=logging.CRITICAL)
+
+# logging.getLogger("satpy").setLevel(logging.ERROR)
 
 DATA_DIR = Path("~/Downloads/sars_p1_data").expanduser()
 save_path = Path("~/Downloads/sars_p1_data/processed_output").expanduser()
@@ -57,6 +62,7 @@ for sat_name, data_info in satellite_data_info.items():
                 satellite_name = sat_name,
                 satellite_instrument=data_info['instrument'],
                 load_recipes = data_info['load_recipe'],
+                load_composites_recipe=data_info['load_composites_recipe'],
                 auto_correction = False,
                 save_path = save_path,
                 correction_type = "both",

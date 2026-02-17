@@ -82,6 +82,7 @@ terra_composites = [
     'natural_color',
     'day_microphysics',
     'airmass',
+    'dust',
     'ocean_color',
     'snow',
 ]
@@ -189,7 +190,6 @@ terra_load_recipe = [
     (terra_ir, ()),
     (terra_swir_nir, ('sunz_corrected',)),
     (terra_visible, ('sunz_corrected', 'rayleigh_corrected')),
-    (terra_composites, ()),
 ]
 
 noaa20_load_recipe = [
@@ -200,28 +200,37 @@ noaa20_load_recipe = [
     (noaa20_iband_swir_nir, ('sunz_corrected',)),
     (noaa20_iband_visible, ('sunz_corrected_iband', 'rayleigh_corrected_iband')),
     (noaa20_mband_visible, ('sunz_corrected', 'rayleigh_corrected')),
-    (noaa20_composites, ())
 ]
 
 sentinel2b_load_recipe = [
     (sentinel2b_geometry, ()),
     (sentinel2b_swir_nir, ('sunz_corrected',)),
     (sentinel2b_bands_visible, ('sunz_corrected','rayleigh_corrected')),
-    (sentinel2b_composites, ()),
 ]
 
 
 satellite_data_info = {
     'terra':{'reader':'modis_l1b',
              'load_recipe':terra_load_recipe,
-             'instrument':'MODIS'
+             'instrument':'MODIS',
+             'load_composites_recipe':terra_composites,
              },
     'noaa20':{'reader':'viirs_l1b',
               'load_recipe':noaa20_load_recipe,
-              'instrument': 'VIIRS'
+              'instrument': 'VIIRS',
+              'load_composites_recipe':noaa20_composites,
               },
     'sentinel2b':{'reader':'msi_safe',
                   'load_recipe':sentinel2b_load_recipe,
-                  'instrument': 'MSI'
+                  'instrument': 'MSI',
+                  'load_composites_recipe':sentinel2b_composites,
                   },
+}
+
+
+sat_pixel_class_points = {
+    'terra':{'class1_lon_lat':(),
+             'class2_lon_lat':(),},
+    'noaa20':[],
+    'sentinel2b':[],
 }

@@ -3,8 +3,10 @@ from pathlib import Path
 from datetime import datetime
 
 from fiona.crs import defaultdict
+from pyresample.resampler import AreaDefinition
 from satpy import Scene, find_files_and_readers
 import xarray as xr
+from xarray import Dataset, DataArray
 from typing import Dict
 
 from sat_info import *
@@ -18,6 +20,7 @@ def process_satellite_data(
         satellite_instrument: str,
         identifier: str = None,
         load_recipes: list = None,
+        load_composites_recipe: list = None,
         auto_correction: bool = True,
         save_path: Path = None,
         correction_type: str = "both",
@@ -123,6 +126,22 @@ def process_satellite_data(
         for bands, modifiers in load_recipes:
             scene.load(bands, modifiers=modifiers)
 
+        coarsest_area = scene.coarsest_area()
+        available = set(scene.available_composite_names())
+
+        composite_list = load_composites_recipe
+        use_resolution = (
+                isinstance(coarsest_area, AreaDefinition)
+                and all(comp in available for comp in composite_list)
+        )
+
+        load_kwargs = {}
+        if use_resolution:
+            print("#### meets criteria for composites sentinel2 ####")
+            load_kwargs["resolution"] = coarsest_area.pixel_size_x
+
+        scene.load(composite_list, **load_kwargs)
+
         # Resample if not using native resolution
         if satpy_resample_option == "native":
             # Native resampling doesn't require target_area
@@ -133,8 +152,11 @@ def process_satellite_data(
                 raise ValueError(f"target_area must be provided when using '{satpy_resample_option}' resampling")
             resampled_scene = scene.resample(destination=target_area, resampler=satpy_resample_option)
 
+
+
         # Convert to xarray
         xr_dataset = resampled_scene.to_xarray(include_lonlats=True)
+        xr_dataset = xr_dataset.compute()
 
         # Store dataset
         dataset_name = f'{satellite_name}_{satellite_instrument}_{label}'
@@ -144,7 +166,7 @@ def process_satellite_data(
         if save_path is not None:
             save_path.mkdir(parents=True, exist_ok=True)
             output_file = save_path / f'{dataset_name}_{identifier}.nc'
-            xr_dataset.to_netcdf(output_file)
+            xr_dataset.to_netcdf(output_file, mode="w")
 
     return all_data
 
@@ -186,3 +208,57 @@ def extract_identifier(file_list):
     else:
         raise ValueError("Unknown file format")
 
+import xarray as xr
+import numpy as np
+
+def pixel_selector(data: xr.Dataset, lon_lat_point: tuple, radius: int = 0) -> xr.Dataset:
+    """
+    Select the pixel nearest to a given (lon, lat) point and optionally grab surrounding pixels.
+
+    Parameters
+    ----------
+    data : xarray.Dataset
+        Dataset containing 2D 'lat' and 'lon' coordinates with dimensions (y, x).
+    lon_lat_point : tuple
+        (longitude, latitude) of the target location.
+    radius : int, optional
+        Number of pixels around the central pixel to include (default is 0).
+
+    Returns
+    -------
+    xarray.Dataset
+        Subset of the dataset around the selected pixel.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> ny, nx = 10, 10
+    >>> lats = np.linspace(30, 40, ny).reshape(ny, 1) + np.zeros((ny, nx))
+    >>> lons = np.linspace(-110, -100, nx).reshape(1, nx) + np.zeros((ny, nx))
+    >>> data_values = np.random.rand(ny, nx)
+    >>> dataset = xr.Dataset(
+    ...     {"reflectance": (("y", "x"), data_values)},
+    ...     coords={"lat": (("y", "x"), lats), "lon": (("y", "x"), lons)}
+    ... )
+    >>> # Select nearest pixel to (-106, 35) with radius 1 (3x3 window)
+    >>> subset = pixel_selector(dataset, point=(-106, 35), radius=1)
+    >>> print(subset)
+    <xarray.Dataset>
+    Dimensions:      (y: 3, x: 3)
+    Coordinates:
+      * lat          (y, x) float64 ...
+      * lon          (y, x) float64 ...
+    Data variables:
+        reflectance  (y, x) float64 ...
+    """
+    # --- Function Start ---
+    lon_target, lat_target = lon_lat_point
+    distance_sq = (data['lon'] - lon_target)**2 + (data['lat'] - lat_target)**2
+    iy, ix = np.unravel_index(distance_sq.argmin().values, distance_sq.shape)
+    y_start = max(0, iy - radius)
+    y_end   = min(data['lat'].shape[0], iy + radius + 1)
+    x_start = max(0, ix - radius)
+    x_end   = min(data['lon'].shape[1], ix + radius + 1)
+
+    return data.isel(y=slice(y_start, y_end), x=slice(x_start, x_end))
