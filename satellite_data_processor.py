@@ -211,16 +211,22 @@ def extract_identifier(file_list):
 import xarray as xr
 import numpy as np
 
-def pixel_selector(data: xr.Dataset, lon_lat_point: tuple, radius: int = 0) -> xr.Dataset:
+def pixel_selector(data: xr.Dataset, lat_lon_point: tuple,
+                   lat_key: str = 'lat', lon_key: str = 'lon',
+                   radius: int = 0) -> xr.Dataset:
     """
-    Select the pixel nearest to a given (lon, lat) point and optionally grab surrounding pixels.
+    Select the pixel nearest to a given (lat, lon) point and optionally grab surrounding pixels.
 
     Parameters
     ----------
     data : xarray.Dataset
-        Dataset containing 2D 'lat' and 'lon' coordinates with dimensions (y, x).
-    lon_lat_point : tuple
-        (longitude, latitude) of the target location.
+        Dataset containing 2D latitude and longitude coordinates with dimensions (y, x).
+    lat_lon_point : tuple
+        (latitude, longitude) of the target location.
+    lat_key : str, optional
+        Name of the latitude coordinate in the dataset (default 'lat').
+    lon_key : str, optional
+        Name of the longitude coordinate in the dataset (default 'lon').
     radius : int, optional
         Number of pixels around the central pixel to include (default is 0).
 
@@ -241,8 +247,8 @@ def pixel_selector(data: xr.Dataset, lon_lat_point: tuple, radius: int = 0) -> x
     ...     {"reflectance": (("y", "x"), data_values)},
     ...     coords={"lat": (("y", "x"), lats), "lon": (("y", "x"), lons)}
     ... )
-    >>> # Select nearest pixel to (-106, 35) with radius 1 (3x3 window)
-    >>> subset = pixel_selector(dataset, point=(-106, 35), radius=1)
+    >>> # Select nearest pixel to (35, -106) with radius 1 (3x3 window)
+    >>> subset = pixel_selector(dataset, lat_lon_point=(35, -106), radius=1)
     >>> print(subset)
     <xarray.Dataset>
     Dimensions:      (y: 3, x: 3)
@@ -252,13 +258,19 @@ def pixel_selector(data: xr.Dataset, lon_lat_point: tuple, radius: int = 0) -> x
     Data variables:
         reflectance  (y, x) float64 ...
     """
-    # --- Function Start ---
-    lon_target, lat_target = lon_lat_point
-    distance_sq = (data['lon'] - lon_target)**2 + (data['lat'] - lat_target)**2
+    lat_target, lon_target = lat_lon_point
+
+    # Use the coordinate keys
+    distance_sq = (data[lat_key] - lat_target)**2 + (data[lon_key] - lon_target)**2
+
     iy, ix = np.unravel_index(distance_sq.argmin().values, distance_sq.shape)
+
+    # Handle edges
     y_start = max(0, iy - radius)
-    y_end   = min(data['lat'].shape[0], iy + radius + 1)
+    y_end   = min(data[lat_key].shape[0], iy + radius + 1)
     x_start = max(0, ix - radius)
-    x_end   = min(data['lon'].shape[1], ix + radius + 1)
+    x_end   = min(data[lon_key].shape[1], ix + radius + 1)
 
     return data.isel(y=slice(y_start, y_end), x=slice(x_start, x_end))
+
+

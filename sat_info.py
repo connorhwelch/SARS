@@ -228,9 +228,54 @@ satellite_data_info = {
 }
 
 
-sat_pixel_class_points = {
-    'terra':{'class1_lon_lat':(),
-             'class2_lon_lat':(),},
-    'noaa20':[],
-    'sentinel2b':[],
+satfile_pixel_class_points = {
+    'noaa20_VIIRS_corrected_A2024129_0730':{
+
+    },
+   ' noaa20_VIIRS_corrected_A2025122_1154':{
+        'dust':(16.5840, 16.5343)
+   },
+    'noaa20_VIIRS_corrected_A2025206_1230':{
+        'convective_cloud':(45.759576,4.6730),
+        'mid_cloud':(45.5122,4.836)
+    },
+    'sentinel2b_MSI_corrected_T31TFL':{
+        'convective_cloud':(45.9474, 4.6638),
+        'mid_cloud':(45.5122,4.836)
+    },
+    'sentinel2b_MSI_corrected_T33QXU':{
+        'dust':(16.5840, 16.5343)
+    },
+    'sentinel2b_MSI_corrected_T44TMK':{
+
+    },
+    'sentinel2b_MSI_corrected_T44TML':{
+
+    },
+    'sentinel2b_MSI_corrected_T44TMM':{
+
+    },
+    'sentinel2b_MSI_corrected_T44TMN':{
+
+    },
+    'sentinel2b_MSI_corrected_T44TNN':{
+
+    },
+    'sentinel2b_MSI_corrected_T44TNP':{
+
+    },
+    'sentinel2b_MSI_corrected_T44TNQ':{
+
+    },
+    'terra_MODIS_corrected_A2024129_0500':{
+
+    },
+    'terra_MODIS_corrected_A2025122_0830':{
+        'dust':(16.5840, 16.5343)
+    },
+    'terra_MODIS_corrected_A2025206_0935':{
+        'convective_cloud':(45.7856,4.6333),
+        'mid_cloud':(45.8032,4.6604)
+    },
+
 }
