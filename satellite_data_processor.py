@@ -8,7 +8,7 @@ from satpy import Scene, find_files_and_readers
 import xarray as xr
 from xarray import Dataset, DataArray
 from typing import Dict
-
+import re
 from sat_info import *
 
 def process_satellite_data(
@@ -212,7 +212,7 @@ import xarray as xr
 import numpy as np
 
 def pixel_selector(data: xr.Dataset, lat_lon_point: tuple,
-                   lat_key: str = 'lat', lon_key: str = 'lon',
+                   lat_key: str = 'latitude', lon_key: str = 'longitude',
                    radius: int = 0) -> xr.Dataset:
     """
     Select the pixel nearest to a given (lat, lon) point and optionally grab surrounding pixels.
@@ -266,11 +266,38 @@ def pixel_selector(data: xr.Dataset, lat_lon_point: tuple,
     iy, ix = np.unravel_index(distance_sq.argmin().values, distance_sq.shape)
 
     # Handle edges
+
     y_start = max(0, iy - radius)
     y_end   = min(data[lat_key].shape[0], iy + radius + 1)
     x_start = max(0, ix - radius)
     x_end   = min(data[lon_key].shape[1], ix + radius + 1)
 
-    return data.isel(y=slice(y_start, y_end), x=slice(x_start, x_end))
+    return data.isel(y=slice(y_start, y_end), x=slice(x_start, x_end)), (y_start, y_end, x_start, x_end)
+
+
+def parse_wavelength(wavelength_string, output_unit=""):
+    """
+    Parse wavelength string like:
+    '0.443 µm (0.415-0.47 µm)'
+
+    Returns:
+        center, lower, upper
+    """
+
+    # Extract center value (first float in string)
+    center = float(re.findall(r"\d+\.\d+", wavelength_string)[0])
+
+    # Extract lower & upper range inside parentheses
+    range_match = re.search(r"\((.*?)\)", wavelength_string)
+    lower, upper = map(
+        float,
+        re.findall(r"\d+\.\d+", range_match.group(1))
+    )
+
+    if output_unit == "nm":
+        return center * 1000, lower * 1000, upper * 1000
+    else:  # µm
+        return {'center':center, 'lower':lower, 'upper':upper}
+
 
 

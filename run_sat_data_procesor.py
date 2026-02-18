@@ -38,10 +38,10 @@ sentinel2b_dir = DATA_DIR / 'sentinel2b-msi'
 granules = {
     "terra": [sorted(map(str, terra_dir.rglob('*2024129*'))),
               sorted(map(str, terra_dir.rglob('*2025122*'))),
-              sorted(map(str, terra_dir.rglob('*2025206*')))],
+              sorted(map(str, terra_dir.rglob('*2025199*')))],
     "noaa20": [sorted(map(str, noaa20_dir.rglob('*2024129*'))),
                sorted(map(str, noaa20_dir.rglob('*2025122*'))),
-               sorted(map(str, noaa20_dir.rglob('*2025206*')))],
+               sorted(map(str, noaa20_dir.rglob('*2025199*')))],
     "sentinel2b": [[f] for f in sorted(map(str, sentinel2b_dir.glob('*')))[1:]],
 }
 

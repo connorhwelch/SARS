@@ -229,53 +229,130 @@ satellite_data_info = {
 
 
 satfile_pixel_class_points = {
-    'noaa20_VIIRS_corrected_A2024129_0730':{
-
+    'noaa20_VIIRS_corrected_A2024129_0730.nc':{
+        "inland_water":(44.6063, 81.1305),
+        "snow":(42.2082, 80.2377),
+        "dessert":(39.9524, 80.2758),
+        "agriculture":(40.9894,80.2458),
+        "urban":(43.8996, 81.3300),
+        "grassland":(42.8952, 80.7838),
+        "dense_forest":(43.0910, 82.2413)
     },
-   ' noaa20_VIIRS_corrected_A2025122_1154':{
+   'noaa20_VIIRS_corrected_A2025122_1154.nc':{
         'dust':(16.5840, 16.5343)
    },
-    'noaa20_VIIRS_corrected_A2025206_1230':{
-        'convective_cloud':(45.759576,4.6730),
-        'mid_cloud':(45.5122,4.836)
+    'noaa20_VIIRS_corrected_A2025199_1954.nc':{
+        'smoke':(62.1496, -116.1345),
+        'high_cloud':(63.7697, -114.5339)
     },
-    'sentinel2b_MSI_corrected_T31TFL':{
-        'convective_cloud':(45.9474, 4.6638),
-        'mid_cloud':(45.5122,4.836)
+    'sentinel2b_MSI_corrected_T11VNJ.nc':{
+        'smoke':(62.1496, -116.1345),
     },
-    'sentinel2b_MSI_corrected_T33QXU':{
+    "sentinel2b_MSI_corrected_T11VPL.nc":{
+        'high_cloud':(63.7697, -114.5339),
+    },
+    'sentinel2b_MSI_corrected_T33QXU.nc':{
         'dust':(16.5840, 16.5343)
     },
-    'sentinel2b_MSI_corrected_T44TMK':{
-
+    'sentinel2b_MSI_corrected_T44TMK.nc':{
+        "dessert":(39.9524, 80.2758),
     },
-    'sentinel2b_MSI_corrected_T44TML':{
-
+    'sentinel2b_MSI_corrected_T44TML.nc':{
+        "agriculture":(40.9894, 80.2458),
     },
-    'sentinel2b_MSI_corrected_T44TMM':{
-
+    'sentinel2b_MSI_corrected_T44TMM.nc':{
+        "snow":(42.2082, 80.2377),
     },
-    'sentinel2b_MSI_corrected_T44TMN':{
-
+    'sentinel2b_MSI_corrected_T44TMN.nc':{
+        "grassland":(42.8952, 80.7838),
     },
-    'sentinel2b_MSI_corrected_T44TNN':{
-
+    'sentinel2b_MSI_corrected_T44TNN.nc':{
+        "dense_forest":(43.0910, 82.2413),
     },
-    'sentinel2b_MSI_corrected_T44TNP':{
-
+    'sentinel2b_MSI_corrected_T44TNP.nc':{
+        "urban":(43.8996, 81.3300),
     },
-    'sentinel2b_MSI_corrected_T44TNQ':{
-
+    'sentinel2b_MSI_corrected_T44TNQ.nc':{
+        "inland_water":(44.6063, 81.1305),
     },
-    'terra_MODIS_corrected_A2024129_0500':{
-
+    'terra_MODIS_corrected_A2024129_0500.nc':{
+        "inland_water": (44.6063, 81.1305),
+        "snow": (42.2082, 80.2377),
+        "dessert": (39.9524, 80.2758),
+        "agriculture": (40.9894, 80.2458),
+        "urban": (43.8996, 81.3300),
+        "grassland": (42.8952, 80.7838),
+        "dense_forest": (43.0910, 82.2413)
     },
-    'terra_MODIS_corrected_A2025122_0830':{
+    'terra_MODIS_corrected_A2025122_0830.nc':{
         'dust':(16.5840, 16.5343)
     },
-    'terra_MODIS_corrected_A2025206_0935':{
-        'convective_cloud':(45.7856,4.6333),
-        'mid_cloud':(45.8032,4.6604)
+    'terra_MODIS_corrected_A2025199_1805.nc':{
+        'smoke':(62.1496, -116.1345),
+        'high_cloud':(63.7697, -114.5339)
     },
-
+    'noaa20_VIIRS_uncorrected_A2024129_0730.nc': {
+        "inland_water": (44.6063, 81.1305),
+        "snow": (42.2082, 80.2377),
+        "dessert": (39.9524, 80.2758),
+        "agriculture": (40.9894, 80.2458),
+        "urban": (43.8996, 81.3300),
+        "grassland": (42.8952, 80.7838),
+        "dense_forest": (43.0910, 82.2413)
+    },
+    'noaa20_VIIRS_uncorrected_A2025122_1154.nc': {
+        'dust': (16.5840, 16.5343)
+    },
+    'noaa20_VIIRS_uncorrected_A2025199_1954.nc': {
+        'smoke': (62.1496, -116.1345),
+        'high_cloud': (63.7697, -114.5339)
+    },
+    'sentinel2b_MSI_uncorrected_T11VNJ.nc': {
+        'smoke': (62.1496, -116.1345),
+    },
+    "sentinel2b_MSI_uncorrected_T11VPL.nc": {
+        'high_cloud': (63.7697, -114.5339),
+    },
+    'sentinel2b_MSI_uncorrected_T33QXU.nc': {
+        'dust': (16.5840, 16.5343)
+    },
+    'sentinel2b_MSI_uncorrected_T44TMK.nc': {
+        "dessert": (39.9524, 80.2758),
+    },
+    'sentinel2b_MSI_uncorrected_T44TML.nc': {
+        "agriculture": (40.9894, 80.2458),
+    },
+    'sentinel2b_MSI_uncorrected_T44TMM.nc': {
+        "snow": (42.2082, 80.2377),
+    },
+    'sentinel2b_MSI_uncorrected_T44TMN.nc': {
+        "grassland": (42.8952, 80.7838),
+    },
+    'sentinel2b_MSI_uncorrected_T44TNN.nc': {
+        "dense_forest": (43.0910, 82.2413),
+    },
+    'sentinel2b_MSI_uncorrected_T44TNP.nc': {
+        "urban": (43.8996, 80.7838),
+    },
+    'sentinel2b_MSI_uncorrected_T44TNQ.nc': {
+        "inland_water": (44.6063, 81.1305),
+    },
+    'terra_MODIS_uncorrected_A2024129_0500.nc': {
+        "inland_water": (44.6063, 81.1305),
+        "snow": (42.2082, 80.2377),
+        "dessert": (39.9524, 80.2758),
+        "agriculture": (40.9894, 80.2458),
+        "urban": (43.8996, 81.3300),
+        "grassland": (42.8952, 80.7838),
+        "dense_forest": (43.0910, 82.2413)
+    },
+    'terra_MODIS_uncorrected_A2025122_0830.nc': {
+        'dust': (16.5840, 16.5343)
+    },
+    'terra_MODIS_uncorrected_A2025199_1805.nc': {
+        'smoke': (62.1496, -116.1345),
+        'high_cloud': (63.7697, -114.5339)
+    },
 }
+
+
