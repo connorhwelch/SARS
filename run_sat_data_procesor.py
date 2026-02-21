@@ -52,12 +52,14 @@ for sat_name, data_info in satellite_data_info.items():
         if sat_name == "sentinel2b":
             granule_files = find_files_and_readers(base_dir = granule_files[0], reader="msi_safe")
 
-        scene = Scene(filenames=granule_files, reader=data_info['reader'])
-
+        # scene = Scene(filenames=granule_files, reader=data_info['reader'])
+        #
         identifier = extract_identifier(_gf)
         print(sat_name, '      ',identifier)
         process_satellite_data(
-                scene = scene,
+                files=granule_files,
+                satpy_reader=data_info['reader'],
+                # satpy_reader_kwargs = dict(mask_saturated = False),
                 identifier=identifier,
                 satellite_name = sat_name,
                 satellite_instrument=data_info['instrument'],

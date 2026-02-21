@@ -1,19 +1,19 @@
 
-from pathlib import Path
-from datetime import datetime
-
-from fiona.crs import defaultdict
-from pyresample.resampler import AreaDefinition
-from satpy import Scene, find_files_and_readers
-import xarray as xr
-from xarray import Dataset, DataArray
-from typing import Dict
 import re
-from sat_info import *
+from pathlib import Path
+from typing import Dict, Any
+
+import numpy as np
+import xarray as xr
+from pyresample.resampler import AreaDefinition
+from satpy import Scene
+
 
 def process_satellite_data(
-        scene: Scene,
-        # satpy_reader: str,
+        # scene: Scene,
+        files: Dict[str, Path],
+        satpy_reader: str,
+        # satpy_reader_kwargs: Dict[str, Any],
         # start_time: str,
         # end_time: str,
         satellite_name: str,
@@ -77,7 +77,7 @@ def process_satellite_data(
         >>> data_dir = Path('/data/modis_data')
         >>> load_recipes = [(['1', '3', '4'], ['sunz_corrected', 'rayleigh_corrected']),
                             (['true_color'], [])]
-        >>> myfiles = file_processor()
+        >>> myfiles = ['file1', 'file2', '...']
         >>> satpy_scene = Scene(filenames=myfiles)
         >>> datasets = process_satellite_data(
         ...     scene=satpy_scene),
@@ -90,6 +90,7 @@ def process_satellite_data(
         ...     save_path=Path('/output'),
         ...     correction_type='both'
         ... )
+        :param satpy_reader_kwargs:
         :param identifier:
     """
     # Validate correction_type
@@ -120,10 +121,27 @@ def process_satellite_data(
 
     for label in correction_types:
 
+        if satellite_name == 'terra':
+            scene = Scene(
+                filenames=files,
+                reader=satpy_reader,
+                reader_kwargs= dict(mask_saturated = False),
+            )
+        else:
+            # create a fresh scene from the same files
+            scene = Scene(
+                filenames=files,
+                reader=satpy_reader,
+            )
+
         # if load_recipes is None and auto_correction:
         #     load_recipes = _generate_load_recipes(scene=scene)
         # Load datasets
         for bands, modifiers in load_recipes:
+
+            if label == 'uncorrected':
+                modifiers = ()
+
             scene.load(bands, modifiers=modifiers)
 
         coarsest_area = scene.coarsest_area()
@@ -156,6 +174,18 @@ def process_satellite_data(
 
         # Convert to xarray
         xr_dataset = resampled_scene.to_xarray(include_lonlats=True)
+
+        if label == 'corrected':
+        # correct emissive bands
+            for band in xr_dataset.data_vars:
+                try:
+                    band_type = xr_dataset[band].attrs["standard_name"]
+                except KeyError:
+                    continue
+
+                if band_type == 'toa_brightness_temperature':
+                    xr_dataset[band] = emissive_band_corrector(xr_dataset[band])
+
         xr_dataset = xr_dataset.compute()
 
         # Store dataset
@@ -171,30 +201,6 @@ def process_satellite_data(
     return all_data
 
 
-# def scene_processor(file_list: list, satpy_reader: str, start_time: datetime, end_time: datetime,):
-#
-#     sat_scenes = defaultdict()
-#          myfiles = file_list
-#
-
-
-
-
-        # if  satpy_reader == 'msi_safe':
-        #     groups = defaultdict(list)
-        #     for f in myfiles[data_info['reader']]:
-        #         safe_name = Path(f).parts[6]  # grabs SAFE directory name
-        #         groups[safe_name].append(f)
-        #     msi_scenes = {}
-        #     for safe, safe_files in groups.items():
-        #         msi_scene = Scene(filenames=safe_files, reader='msi_safe')
-        #         process_satellite_data(msi_scene,
-        #                                )
-        # else:
-        #     sat_scene = Scene(myfiles)
-
-
-
 def extract_identifier(file_list):
     fname = Path(file_list[0]).name
 
@@ -208,12 +214,10 @@ def extract_identifier(file_list):
     else:
         raise ValueError("Unknown file format")
 
-import xarray as xr
-import numpy as np
 
 def pixel_selector(data: xr.Dataset, lat_lon_point: tuple,
                    lat_key: str = 'latitude', lon_key: str = 'longitude',
-                   radius: int = 0) -> xr.Dataset:
+                   radius: int = 0) -> tuple[xr.Dataset, tuple]:
     """
     Select the pixel nearest to a given (lat, lon) point and optionally grab surrounding pixels.
 
@@ -234,6 +238,8 @@ def pixel_selector(data: xr.Dataset, lat_lon_point: tuple,
     -------
     xarray.Dataset
         Subset of the dataset around the selected pixel.
+    tuple
+         indicies of the pixel edges of the pixel grouping
 
     Examples
     --------
@@ -299,5 +305,109 @@ def parse_wavelength(wavelength_string, output_unit=""):
     else:  # µm
         return {'center':center, 'lower':lower, 'upper':upper}
 
+304.675
+def emissive_band_corrector(band_data: xr.DataArray, emissivity=0.95):
+    a            = 1.438e-2  # m·K
+    wavelength_m = np.float32(parse_wavelength(band_data.attrs['wavelength'])['center']) * 1e-6
+
+    corrected = band_data.values/ (1 + (wavelength_m * band_data.values / a * np.log(emissivity)))
+
+    # Return DataArray with original dims and attrs preserved
+    return xr.DataArray(
+        corrected,
+        dims=band_data.dims,
+        coords=band_data.coords,
+        attrs=band_data.attrs
+    )
 
 
+def get_pixel_info(sat_data: xr.DataArray,
+                   nadir_along_track_resolution,
+                   nadir_cross_track_resoltuion,
+                   sat_orb_height,
+                   correct_for_earth_curvature: bool,
+                   lat_lon_point:tuple,
+                   radius:int=1 ):
+
+    re = 6378 * 1000 # earth radius meters
+
+    natr = nadir_along_track_resolution
+    nctr = nadir_cross_track_resoltuion
+
+    pixel_data, (ys, ye, xs, xe) = pixel_selector(sat_data, lat_lon_point=lat_lon_point, radius=radius)
+
+    # slant = scn_cor_proj['range'].values - scn_cor_proj['height'].values
+    saa = sat_data['solar_azimuth_angle'][ys:ye, xs:xe].values
+    sza = sat_data['solar_zenith_angle'][ys:ye, xs:xe].values
+    vaa = sat_data['satellite_azimuth_angle'][ys:ye, xs:xe].values
+    vza = sat_data['satellite_zenith_angle'][ys:ye, xs:xe].values
+
+    ifov_cross_track = 2 * np.arctan((nctr / 2) / (sat_orb_height))
+    ifov_along_track = 2 * np.arctan((natr / 2) / (sat_orb_height))
+
+    # calculate pixel size for each pixel in the 3x3 grid
+    # cross-track: p = IFOV * h * sec^2(VZA)
+    # along-track: p = IFOV * h * sec(VZA)
+    # note: h = (range - z)/sec(VZA) = slant*cos(VZA); see pg 52 of text
+
+    # alt_sat = slant * np.cos(np.deg2rad(vza))
+
+
+    if correct_for_earth_curvature:
+        p_along = ifov_along_track * sat_orb_height * (1 / np.cos(np.deg2rad(vza)))  # along-track pixel size
+
+        theta = np.deg2rad(vza)
+
+        phi = np.arcsin((re + sat_orb_height) / re * np.sin(theta))
+
+        p_cross = (
+                ifov_cross_track
+                * (sat_orb_height + re * (1 - np.cos(phi)))
+                * (1 / np.cos(theta))
+        )
+        p_cross_nadir = (
+                ifov_cross_track
+                * (sat_orb_height + re * (1 - np.cos(phi)))
+        )
+        p_along_nadir = ifov_along_track * sat_orb_height  # along-track pixel size at nadir
+
+        eps = (
+                ifov_cross_track
+                * (sat_orb_height + re * (1 - np.cos(phi)))
+                * (1 / np.cos(theta))
+                * (1 / np.cos(theta - phi))
+        )
+
+        pixel_info = {"pixel_size_crosstrack": p_cross,
+           "pixel_size_along_track": p_along,
+           "pixel_size_along_track_nadir": p_along_nadir,
+           "pixel_size_crosstrack_nadir": p_cross_nadir,
+           "selected_area_size": (p_cross.mean(axis=0).sum(), p_along.mean(axis=1).sum()),
+           "avg_pixel_size_crosstrack": p_cross.mean(),
+           "stdv_pixel_size_crosstrack": p_cross.std(),
+           "avg_pixel_size_alongtrack": p_along.mean(),
+           "stdv_pixel_size_alongtrack": p_along.std(),
+           "effective_pixel_size": eps,
+           "mean_effective_pixel_size":eps.mean(),
+            }
+
+
+    else:
+        p_cross = ifov_cross_track * sat_orb_height * (1 / np.cos(np.deg2rad(vza))) ** 2  # cross-track pixel size
+        p_along = ifov_along_track * sat_orb_height * (1 / np.cos(np.deg2rad(vza)))  # along-track pixel size
+
+        p_cross_nadir = ifov_cross_track * sat_orb_height  # cross-track pixel size at nadir
+        p_along_nadir = ifov_along_track * sat_orb_height  # along-track pixel size at nadir
+
+        pixel_info = {"pixel_size_crosstrack": p_cross,
+                      "pixel_size_along_track": p_along,
+                      "pixel_size_along_track_nadir": p_along_nadir,
+                      "pixel_size_crosstrack_nadir": p_cross_nadir,
+                      "selected_area_size": (p_cross.mean(axis=0).sum(), p_along.mean(axis=1).sum()),
+                      "avg_pixel_size_crosstrack": p_cross.mean(),
+                      "stdv_pixel_size_crosstrack": p_cross.std(),
+                      "avg_pixel_size_alongtrack": p_along.mean(),
+                      "stdv_pixel_size_alongtrack": p_along.std(),
+                     }
+
+    return pixel_info

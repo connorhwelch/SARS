@@ -226,12 +226,12 @@ satellite_data_info = {
                   'load_composites_recipe':sentinel2b_composites,
                   },
 }
-
+42.2001, 80.2417
 
 satfile_pixel_class_points = {
     'noaa20_VIIRS_corrected_A2024129_0730.nc':{
         "inland_water":(44.6063, 81.1305),
-        "snow":(42.2082, 80.2377),
+        "snow":(42.2001, 80.2417),
         "dessert":(39.9524, 80.2758),
         "agriculture":(40.9894,80.2458),
         "urban":(43.8996, 81.3300),
@@ -261,7 +261,7 @@ satfile_pixel_class_points = {
         "agriculture":(40.9894, 80.2458),
     },
     'sentinel2b_MSI_corrected_T44TMM.nc':{
-        "snow":(42.2082, 80.2377),
+        "snow":(42.2001, 80.2417),
     },
     'sentinel2b_MSI_corrected_T44TMN.nc':{
         "grassland":(42.8952, 80.7838),
@@ -277,7 +277,7 @@ satfile_pixel_class_points = {
     },
     'terra_MODIS_corrected_A2024129_0500.nc':{
         "inland_water": (44.6063, 81.1305),
-        "snow": (42.2082, 80.2377),
+        "snow": (42.2001, 80.2417),
         "dessert": (39.9524, 80.2758),
         "agriculture": (40.9894, 80.2458),
         "urban": (43.8996, 81.3300),
@@ -293,7 +293,7 @@ satfile_pixel_class_points = {
     },
     'noaa20_VIIRS_uncorrected_A2024129_0730.nc': {
         "inland_water": (44.6063, 81.1305),
-        "snow": (42.2082, 80.2377),
+        "snow": (42.2001, 80.2417),
         "dessert": (39.9524, 80.2758),
         "agriculture": (40.9894, 80.2458),
         "urban": (43.8996, 81.3300),
@@ -323,7 +323,7 @@ satfile_pixel_class_points = {
         "agriculture": (40.9894, 80.2458),
     },
     'sentinel2b_MSI_uncorrected_T44TMM.nc': {
-        "snow": (42.2082, 80.2377),
+        "snow": (42.2001, 80.2417),
     },
     'sentinel2b_MSI_uncorrected_T44TMN.nc': {
         "grassland": (42.8952, 80.7838),
@@ -339,7 +339,7 @@ satfile_pixel_class_points = {
     },
     'terra_MODIS_uncorrected_A2024129_0500.nc': {
         "inland_water": (44.6063, 81.1305),
-        "snow": (42.2082, 80.2377),
+        "snow": (42.2001, 80.2417),
         "dessert": (39.9524, 80.2758),
         "agriculture": (40.9894, 80.2458),
         "urban": (43.8996, 81.3300),
