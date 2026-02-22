@@ -389,6 +389,7 @@ def get_pixel_info(sat_data: xr.DataArray,
            "stdv_pixel_size_alongtrack": p_along.std(),
            "effective_pixel_size": eps,
            "mean_effective_pixel_size":eps.mean(),
+           "stdv_effective_pixel_size": eps.std(),
             }
 
 
@@ -399,6 +400,7 @@ def get_pixel_info(sat_data: xr.DataArray,
         p_cross_nadir = ifov_cross_track * sat_orb_height  # cross-track pixel size at nadir
         p_along_nadir = ifov_along_track * sat_orb_height  # along-track pixel size at nadir
 
+        # no curvature - sentinel2b - standard grid size ... effective pixel size does not matter
         pixel_info = {"pixel_size_crosstrack": p_cross,
                       "pixel_size_along_track": p_along,
                       "pixel_size_along_track_nadir": p_along_nadir,
@@ -408,6 +410,9 @@ def get_pixel_info(sat_data: xr.DataArray,
                       "stdv_pixel_size_crosstrack": p_cross.std(),
                       "avg_pixel_size_alongtrack": p_along.mean(),
                       "stdv_pixel_size_alongtrack": p_along.std(),
+                      # "effective_pixel_size": eps,
+                      # "mean_effective_pixel_size": eps.mean(),
+                      # "stdv_effective_pixel_size": eps.std(),
                      }
 
     return pixel_info
