@@ -16,8 +16,8 @@ logging.basicConfig(level=logging.CRITICAL)
 
 # logging.getLogger("satpy").setLevel(logging.ERROR)
 
-DATA_DIR = Path("~/Downloads/sars_p1_data").expanduser()
-save_path = Path("~/Downloads/sars_p1_data/processed_output").expanduser()
+DATA_DIR = Path("~/Downloads/sars_data").expanduser()
+save_path = Path("~/Downloads/sars_data/processed_output").expanduser()
 
 # Create symlink to fix the naming issue ... you may need to change this depending on your system
 pyspectral_dir = Path.home() / 'Library/Application Support/pyspectral'
@@ -35,17 +35,23 @@ terra_dir = DATA_DIR / 'terra-modis'
 noaa20_dir = DATA_DIR / 'noaa20-viirs'
 sentinel2b_dir = DATA_DIR / 'sentinel2b-msi'
 
-granules = {
-    "terra": [sorted(map(str, terra_dir.rglob('*2024129*'))),
-              sorted(map(str, terra_dir.rglob('*2025122*'))),
-              sorted(map(str, terra_dir.rglob('*2025199*')))],
-    "noaa20": [sorted(map(str, noaa20_dir.rglob('*2024129*'))),
-               sorted(map(str, noaa20_dir.rglob('*2025122*'))),
-               sorted(map(str, noaa20_dir.rglob('*2025199*')))],
-    "sentinel2b": [[f] for f in sorted(map(str, sentinel2b_dir.glob('*')))[1:]],
-}
+# P1
+# granules = {
+#     "terra": [sorted(map(str, terra_dir.rglob('*2024129*'))),
+#               sorted(map(str, terra_dir.rglob('*2025122*'))),
+#               sorted(map(str, terra_dir.rglob('*2025199*')))],
+#     "noaa20": [sorted(map(str, noaa20_dir.rglob('*2024129*'))),
+#                sorted(map(str, noaa20_dir.rglob('*2025122*'))),
+#                sorted(map(str, noaa20_dir.rglob('*2025199*')))],
+#     "sentinel2b": [[f] for f in sorted(map(str, sentinel2b_dir.glob('*')))[1:]],
+# }
+
+# P2
+granules = {"noaa20": [sorted(map(str, noaa20_dir.rglob("*2024129*"))),]}
 
 for sat_name, data_info in satellite_data_info.items():
+    if sat_name != 'noaa20':
+        continue
     for granule_files in granules[sat_name]:
 
         _gf = granule_files
@@ -54,11 +60,18 @@ for sat_name, data_info in satellite_data_info.items():
 
         # scene = Scene(filenames=granule_files, reader=data_info['reader'])
         #
+        # gamma = {
+        #     'true_color': 2.1,
+        #     'dust': ,
+        #     'false_color': ,
+        #     'natural_color': ,
+        # }
         identifier = extract_identifier(_gf)
         print(sat_name, '      ',identifier)
         process_satellite_data(
                 files=granule_files,
                 satpy_reader=data_info['reader'],
+                save_geotiff=True,
                 # satpy_reader_kwargs = dict(mask_saturated = False),
                 identifier=identifier,
                 satellite_name = sat_name,
@@ -67,8 +80,9 @@ for sat_name, data_info in satellite_data_info.items():
                 load_composites_recipe=data_info['load_composites_recipe'],
                 auto_correction = False,
                 save_path = save_path,
-                correction_type = "both",
+                correction_type = "corrected",
                 satpy_resample_option = "native",
                 target_area = None,
+
             )
 print("COMPLETE!!!!!!!!!!!!!!!!!!!!!!")
