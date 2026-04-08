@@ -2351,3 +2351,119 @@ def plot_kmeans_spectral_response(
         ylim_reflective=ylim_reflective,
         ylim_emissive=ylim_emissive,
     )
+
+
+import numpy as np
+import pandas as pd
+
+
+def compute_pixel_area_grid(
+    sat_data,
+    nadir_along_track_resolution,
+    nadir_cross_track_resolution,
+    sat_orb_height,
+    correct_for_earth_curvature=True,
+):
+    """
+    Compute the physical area (m²) of every pixel in the scene
+    based on satellite viewing geometry.
+
+    Parameters
+    ----------
+    sat_data                     : xr.Dataset with 'satellite_zenith_angle'
+    nadir_along_track_resolution : float — nadir ground sample distance (m)
+    nadir_cross_track_resolution : float — nadir ground sample distance (m)
+    sat_orb_height               : float — orbital altitude (m)
+    correct_for_earth_curvature  : bool
+
+    Returns
+    -------
+    pixel_areas  : np.ndarray (y, x) — area of each pixel in m²
+    pixel_cross  : np.ndarray (y, x) — cross-track size in m
+    pixel_along  : np.ndarray (y, x) — along-track size in m
+    """
+
+    earth_radius = 6_378_000.0  # metres
+
+    ifov_cross = 2 * np.arctan((nadir_cross_track_resolution / 2) / sat_orb_height)
+    ifov_along = 2 * np.arctan((nadir_along_track_resolution / 2) / sat_orb_height)
+
+    vza   = sat_data["satellite_zenith_angle"].values   # (y, x) degrees
+    theta = np.deg2rad(vza)
+
+    if correct_for_earth_curvature:
+        phi = np.arcsin(
+            (earth_radius + sat_orb_height) / earth_radius * np.sin(theta)
+        )
+        pixel_along = ifov_along * sat_orb_height * (1.0 / np.cos(theta))
+        pixel_cross = (
+            ifov_cross
+            * (sat_orb_height + earth_radius * (1.0 - np.cos(phi)))
+            * (1.0 / np.cos(theta))
+        )
+    else:
+        pixel_along = ifov_along * sat_orb_height * (1.0 / np.cos(theta))
+        pixel_cross = ifov_cross * sat_orb_height * (1.0 / np.cos(theta)) ** 2
+
+    pixel_areas = pixel_cross * pixel_along  # m²
+
+    return pixel_areas, pixel_cross, pixel_along
+
+
+def summarize_class_areas(y_labels, pixel_areas_m2, class_labels,
+                          source_name="", area_unit="km2"):
+    """
+    Summarize total physical area per class from label + area arrays.
+
+    Parameters
+    ----------
+    y_labels       : np.ndarray (n_samples,) — class labels
+    pixel_areas_m2 : np.ndarray (n_samples,) — area of each pixel in m²
+    class_labels   : dict — class name → integer label
+    source_name    : str — label for printout (e.g. "Training", "MLC")
+    area_unit      : str — "m2", "km2", or "ha"
+
+    Returns
+    -------
+    df : pd.DataFrame — per-class area summary
+    """
+    unit_factors = {"m2": 1.0, "km2": 1e-6, "ha": 1e-4}
+    uf = unit_factors[area_unit]
+
+    records = []
+    for class_name, class_val in class_labels.items():
+        mask     = (y_labels == class_val)
+        n_pixels = mask.sum()
+        areas    = pixel_areas_m2[mask]
+
+        records.append({
+            "Class":                        class_name,
+            "N Pixels":                     int(n_pixels),
+            f"Total Area ({area_unit})":    round(areas.sum() * uf, 4),
+            f"Mean Pixel ({area_unit})":    round(areas.mean() * uf, 8) if n_pixels > 0 else 0,
+            f"Min Pixel ({area_unit})":     round(areas.min() * uf, 8) if n_pixels > 0 else 0,
+            f"Max Pixel ({area_unit})":     round(areas.max() * uf, 8) if n_pixels > 0 else 0,
+        })
+
+    # Grand total
+    total_px   = sum(r["N Pixels"] for r in records)
+    total_area = sum(r[f"Total Area ({area_unit})"] for r in records)
+    records.append({
+        "Class":                        "** TOTAL **",
+        "N Pixels":                     total_px,
+        f"Total Area ({area_unit})":    round(total_area, 4),
+        f"Mean Pixel ({area_unit})":    "—",
+        f"Min Pixel ({area_unit})":     "—",
+        f"Max Pixel ({area_unit})":     "—",
+    })
+
+    df = pd.DataFrame(records)
+
+    if source_name:
+        print(f"\n{'=' * 75}")
+        print(f"  AREA SUMMARY — {source_name.upper()}")
+        print(f"{'=' * 75}")
+    print(df.to_string(index=False))
+    print()
+
+    return df
