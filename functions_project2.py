@@ -1,51 +1,57 @@
+"""
+functions_project2.py — All reusable functions for Project 2.
+Plotting, analysis, classification, accuracy assessment.
+"""
+# ── Standard library ──────────────────────────────────────────────────────────
+from pathlib import Path
+
+# ── Numerics ──────────────────────────────────────────────────────────────────
 import numpy as np
+import pandas as pd
+from scipy.stats import skew, kurtosis, chi2, kstest
+
+# ── Geospatial / Satellite ───────────────────────────────────────────────────
+import xarray as xr
 import rioxarray as rx
 import geopandas as gpd
-import matplotlib.pyplot as plt
 import rasterio
-from pathlib import Path
-import leafmap
-from overrides.typing_utils import unknown
 from rasterio.crs import CRS
-from sgp4.earth_gravity import wgs84
-import xarray as xr
-from satpy.enhancements.enhancer import get_enhanced_image
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler, RobustScaler
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import silhouette_samples, silhouette_score
-from sklearn.decomposition import PCA
-import joblib
-import matplotlib.colors as mcolors
-import matplotlib.style
-import matplotlib as mpl
-import matplotlib.patches as mpatches
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
 from satpy.writers import get_enhanced_image
-from sklearn.naive_bayes import GaussianNB
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-from matplotlib.colors import LinearSegmentedColormap
-import matplotlib.patches as mpatches
-import pandas as pd
-import numpy as np
-from scipy.stats import skew, kurtosis, chi2, kstest
-from pathlib import Path
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+
+# ── ML ────────────────────────────────────────────────────────────────────────
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.naive_bayes import GaussianNB
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (classification_report, confusion_matrix,
+                             silhouette_samples, silhouette_score)
+import joblib
+
+# ── Plotting ──────────────────────────────────────────────────────────────────
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
+import matplotlib.ticker as mticker
+from matplotlib.colors import LinearSegmentedColormap
 import seaborn as sns
 
-mpl.rcParams.update(mpl.rcParamsDefault)
-plt.style.use('default')
+# ── Project config (single source of truth) ──────────────────────────────────
+from config import (
+    BAND_WAVELENGTHS, ALL_BANDS, REFLECTIVE_BANDS, EMISSIVE_BANDS,
+    CLASS_LABELS, CLASS_NAMES, CLASS_COLORS, CLASS_COLORS_LIST,
+    CLASS_LABELS_EXT, CLASS_COLORS_EXT,
+    HEIGHT, WIDTH,
+)
 
-sns.set_style("white")
+# ══════════════════════════════════════════════════════════════════════════════
+#                              FUNCTIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ... (all your existing functions, cleaned of inline constant definitions)
 
 
 
