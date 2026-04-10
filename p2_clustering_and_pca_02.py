@@ -23,16 +23,8 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import joblib
 
-from config import (
-    DATA_DIR, PLOT_DIR, MODEL_DIR, HEIGHT, WIDTH,
-    ALL_BANDS, REFLECTIVE_BANDS, EMISSIVE_BANDS, BAND_WAVELENGTHS,
-    apply_plot_style, add_geo_ticks, save_checkpoint, load_checkpoint,
-)
-from functions_project2 import (
-    plot_pca_scree, pca_eigen_table, plot_pca_discrete, plot_pca_rgb,
-    plot_pca_loadings, plot_rgb_subset,
-    merge_and_relabel, plot_kmeans_spectral_response,
-)
+from p2_config import *
+from functions_project2 import *
 
 apply_plot_style()
 
@@ -121,17 +113,31 @@ df_eigen_top, df_load_top = pca_eigen_table(
     latex_path=str(PLOT_DIR / 'pca_tables.tex')
 )
 
-# Discrete PC maps
-for pc_idx, title in [(0, 'PC1: Albedo/Brightness'),
-                       (1, 'PC2: Thermal Contrast'),
-                       (2, 'PC3'), (3, 'PC4')]:
-    plot_pca_discrete(X_pca[:, pc_idx], HEIGHT, WIDTH,
-                      n_levels=4, title=title)
+# ── PCA RGB composite (now with geo ticks + title) ────────────────────────────
+rgbstack = plot_pca_rgb(
+    X_pca, HEIGHT, WIDTH,
+    pc_indices=(1, 2, 0), stretch=2,
+    lon=lon, lat=lat,
+    title='VIIRS PCA False-Color Composite  (R=PC2, G=PC3, B=PC1)',
+    save_path=PLOT_DIR / 'pca_rgb_composite.png',
+)
 
-# PCA RGB composite
-rgbstack = plot_pca_rgb(X_pca, HEIGHT, WIDTH,
-                        pc_indices=(1, 2, 0), stretch=2)
+# ── Discrete PC maps (now with geo ticks + titles) ───────────────────────────
+pc_info = [
+    (0, 'PC1: Albedo / Brightness'),
+    (1, 'PC2: Thermal Contrast'),
+    (2, 'PC3: Vegetation / Moisture'),
+    (3, 'PC4: Atmospheric Signal'),
+]
 
+for pc_idx, pc_title in pc_info:
+    plot_pca_discrete(
+        X_pca[:, pc_idx], HEIGHT, WIDTH,
+        n_levels=4,
+        lon=lon, lat=lat,
+        title=pc_title,
+        save_path=PLOT_DIR / f'pca_discrete_pc{pc_idx+1}.png',
+    )
 # PCA loadings bar chart
 plot_pca_loadings(pca, band_names)
 

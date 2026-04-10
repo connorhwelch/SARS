@@ -40,11 +40,11 @@ from matplotlib.colors import LinearSegmentedColormap
 import seaborn as sns
 
 # ── Project config (single source of truth) ──────────────────────────────────
-from config import (
+from p2_config import (
     BAND_WAVELENGTHS, ALL_BANDS, REFLECTIVE_BANDS, EMISSIVE_BANDS,
     CLASS_LABELS, CLASS_NAMES, CLASS_COLORS, CLASS_COLORS_LIST,
     CLASS_LABELS_EXT, CLASS_COLORS_EXT,
-    HEIGHT, WIDTH,
+    HEIGHT, WIDTH, add_geo_ticks
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -415,40 +415,94 @@ def plot_spectral_response(
                             dpi=dpi, bbox_inches='tight')
             plt.show()
 
+    return class_stats
 
-def plot_pca_rgb(pca_scores, height, width, pc_indices=(0, 1, 2), stretch=2, x=slice(None), y=slice(None)):
+
+def plot_pca_rgb(
+    X_pca, height, width,
+    pc_indices=(0, 1, 2),
+    stretch=2,
+    figsize=(10, 8),
+    dpi=150,
+    # ── NEW: geo-labeling + title ─────────────────────────────────
+    lon=None,
+    lat=None,
+    title=None,
+    save_path=None,
+    show=True,
+    x=None,            # kept for backward compat (slice)
+    y=None,            # kept for backward compat (slice)
+):
     """
-    Creates an RGB composite from three Principal Components.
-    pc_indices: tuple of which PCs to map to (R, G, B). Default is (PC1, PC2, PC3).
-    stretch: percentile to clip from both ends (e.g., 2nd and 98th percentiles).
+    Create a false-color RGB composite from three PCA components
+    and display it with optional geographic axis labels.
+
+    Parameters
+    ----------
+    X_pca      : np.ndarray (n_pixels, n_components)
+    height     : int — image height in pixels
+    width      : int — image width in pixels
+    pc_indices : tuple of 3 ints — which PCs map to (R, G, B)
+    stretch    : float — percentile stretch strength
+                 (higher = more contrast; 2 → clip at 2nd/98th pctile)
+    lon        : np.ndarray (height, width) or None — longitude grid
+    lat        : np.ndarray (height, width) or None — latitude grid
+    title      : str or None — figure title
+    save_path  : str/Path or None — save figure to this path
+    show       : bool — call plt.show()
+
+    Returns
+    -------
+    rgb : np.ndarray (height, width, 3) — the stretched RGB array [0, 1]
     """
-    # 1. Extract the three chosen components
-    r_pc = pca_scores[:, pc_indices[0]].reshape(height, width)
-    g_pc = pca_scores[:, pc_indices[1]].reshape(height, width)
-    b_pc = pca_scores[:, pc_indices[2]].reshape(height, width)
 
-    rgb_stack = np.stack([r_pc, g_pc, b_pc], axis=2)
+    # ── Build the 3-channel image ─────────────────────────────────────────────
+    channels = []
+    for pc_idx in pc_indices:
+        ch = X_pca[:, pc_idx].reshape(height, width)
+        channels.append(ch)
+    rgb = np.stack(channels, axis=-1)
 
-    # 2. Scale each channel to [0, 1] using Percentile Stretching
-    def scale_channel(ch):
-        vmin, vmax = np.nanpercentile(ch, [stretch, 100 - stretch])
-        ch_scaled = (ch - vmin) / (vmax - vmin)
-        return np.clip(ch_scaled, 0, 1)
+    # ── Percentile stretch per channel ────────────────────────────────────────
+    def _stretch(ch, pct=stretch):
+        lo = np.nanpercentile(ch, pct)
+        hi = np.nanpercentile(ch, 100 - pct)
+        ch = (ch - lo) / (hi - lo) if hi > lo else ch * 0
+        return np.clip(ch, 0, 1)
 
-    rgb_image = np.zeros((height, width, 3))
     for i in range(3):
-        rgb_image[:, :, i] = scale_channel(rgb_stack[:, :, i])
+        rgb[:, :, i] = _stretch(rgb[:, :, i])
 
-    # 3. Plotting
-    plt.figure(figsize=(12, 10))
-    plt.imshow(rgb_image[y, x, :], )#interpolation='spline16')
+    # ── Optional subset (backward compat) ─────────────────────────────────────
+    if x is not None and y is not None:
+        rgb = rgb[y, x, :]
 
-    # plt.title(f"PCA RGB Composite (R:PC1, G:PC2, B:PC0)")
-    plt.tight_layout()
-    plt.axis('off')
-    plt.show()
-    return rgb_image
+    # ── Plot ──────────────────────────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+    ax.imshow(rgb, origin='upper', interpolation='nearest')
 
+    # ── Geo ticks or pixel-only ───────────────────────────────────────────────
+    if lon is not None and lat is not None:
+        add_geo_ticks(ax, lon, lat, height=rgb.shape[0], width=rgb.shape[1])
+    else:
+        ax.axis('off')
+
+    # ── Title ─────────────────────────────────────────────────────────────────
+    pc_r, pc_g, pc_b = [f'PC{i+1}' for i in pc_indices]
+    default_title = f'VIIRS PCA False-Color Composite  (R={pc_r}, G={pc_g}, B={pc_b})'
+    ax.set_title(title if title else default_title,
+                 fontsize=13, fontweight='bold', pad=10)
+
+    fig.tight_layout()
+
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches='tight', dpi=300)
+        print(f"[plot_pca_rgb] Saved → {save_path}")
+
+    if show:
+        plt.show()
+
+    return rgb
 
 
 def plot_pca_loadings(pca_model, band_names, n_components=4):
@@ -1242,34 +1296,87 @@ def build_spectral_statistics_table(
     return df_wide, df_long
 
 
-def plot_pca_discrete(pca_data, height, width, n_levels=6, title="PCA Component", rgb=None):
+def plot_pca_discrete(
+    pc_data, height, width,
+    n_levels=4,
+    figsize=(10, 8),
+    dpi=150,
+    # ── NEW: geo-labeling + title ─────────────────────────────────
+    lon=None,
+    lat=None,
+    title=None,
+    save_path=None,
+    show=True,
+):
     """
-    Plots a 2D PCA component discretized into a specific number of levels
-    with a perfectly aligned discrete colorbar.
-    """
-    # 1. Reshape the 1D PCA scores back to the 2D image frame
-    pc_image = pca_data.reshape(height, width)
+    Visualize a single PCA component as a discretized (classified) map
+    with optional geographic axis labels.
 
-    # Using tab10 (up to 10) or tab20 (up to 20) for consistent indexing
-    cmap_base = plt.get_cmap('tab10' if n_levels <= 10 else 'tab20')
-    colors = [cmap_base(i) for i in range(n_levels)]
+    Parameters
+    ----------
+    pc_data    : np.ndarray (n_pixels,) — one PCA component (flat)
+    height     : int — image height
+    width      : int — image width
+    n_levels   : int — number of discrete bins (2..12 recommended)
+    lon        : np.ndarray (height, width) or None — longitude grid
+    lat        : np.ndarray (height, width) or None — latitude grid
+    title      : str or None — figure title
+    save_path  : str/Path or None — save figure to this path
+    show       : bool — call plt.show()
+
+    Returns
+    -------
+    fig, ax : matplotlib Figure and Axes objects
+    """
+
+    pc_2d = pc_data.reshape(height, width)
+
+    # ── Color logic ───────────────────────────────────────────────────────────
+    if n_levels == 2:
+        colors = ['black', 'white']
+    else:
+        cmap_base = plt.get_cmap('tab10')
+        colors = [cmap_base(i) for i in range(n_levels)]
 
     custom_cmap = mcolors.ListedColormap(colors)
 
-    # 3. Create boundaries based on the data range
-    # This splits the PC values into exactly n_levels buckets
-    bounds = np.linspace(np.nanmin(pc_image), np.nanmax(pc_image), n_levels + 1)
-    norm = mcolors.BoundaryNorm(bounds, n_levels)
+    # ── Boundaries ────────────────────────────────────────────────────────────
+    bounds = np.linspace(pc_2d.min(), pc_2d.max(), n_levels + 1)
+    norm   = mcolors.BoundaryNorm(bounds, n_levels)
 
-    # 4. Create Plot
-    fig, ax = plt.subplots(figsize=(10, 8))
+    # ── Plot ──────────────────────────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+    im = ax.imshow(pc_2d, cmap=custom_cmap, norm=norm,
+                   interpolation='nearest', origin='upper')
 
-    # 'nearest' interpolation prevents blurring between the discrete levels
-    im = ax.imshow(pc_image, cmap=custom_cmap, norm=norm, interpolation='nearest')
-
-    # 5. Configure Discrete Colorbar
-    # Place ticks at the midpoint of each boundary level
+    # ── Discrete colorbar ─────────────────────────────────────────────────────
     tick_locs = (bounds[:-1] + bounds[1:]) / 2
+    cbar = fig.colorbar(im, ax=ax, ticks=tick_locs,
+                        fraction=0.046, pad=0.04)
+    cbar.set_label('Variance Level')
+    cbar.ax.set_yticklabels([f'Level {i}' for i in range(n_levels)])
+
+    # ── Geo ticks or pixel-only ───────────────────────────────────────────────
+    if lon is not None and lat is not None:
+        add_geo_ticks(ax, lon, lat, height=height, width=width)
+    else:
+        ax.axis('off')
+
+    # ── Title ─────────────────────────────────────────────────────────────────
+    default_title = f'VIIRS PCA Discretized into {n_levels} Levels'
+    ax.set_title(title if title else default_title,
+                 fontsize=13, fontweight='bold', pad=10)
+
+    fig.tight_layout()
+
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches='tight', dpi=300)
+        print(f"[plot_pca_discrete] Saved → {save_path}")
+
+    if show:
+        plt.show()
+
+    return fig, ax
 
 
 def calculate_accuracy_metrics(y_test, y_pred, class_labels, latex_path=None):
@@ -2358,9 +2465,7 @@ def plot_kmeans_spectral_response(
         ylim_emissive=ylim_emissive,
     )
 
-
-import numpy as np
-import pandas as pd
+    return class_stats
 
 
 def compute_pixel_area_grid(
@@ -2473,3 +2578,182 @@ def summarize_class_areas(y_labels, pixel_areas_m2, class_labels,
     print()
 
     return df
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def extract_spectral_stats(
+    X_raw,
+    y,
+    all_band_names,
+    class_labels,
+    band_wavelengths=BAND_WAVELENGTHS,
+    reflective_bands=REFLECTIVE_BANDS,
+    emissive_bands=EMISSIVE_BANDS,
+    save_dir=None,
+    latex_path=None,
+    dec_ref=3,
+    dec_em=3,
+    caption_prefix="NOAA-20 VIIRS",
+    table_label_prefix="spectral",
+):
+    """
+    Compute mean & std per band per class — works with ANY label array:
+    class labels, predictions, or cluster IDs.
+
+    Parameters
+    ----------
+    X_raw          : (n, n_bands) raw values
+    y              : (n,) integer labels  — class labels, y_pred, OR cluster_map.ravel()
+    all_band_names : list of band names matching columns of X_raw
+    class_labels   : dict  {'water':0, ...} OR {'Cluster 1':0, 'Cluster 2':1, ...}
+    band_wavelengths, reflective_bands, emissive_bands : from your config
+    save_dir       : Path — save CSV
+    latex_path     : Path — save .tex (mean, std, mean±std)
+
+    Returns
+    -------
+    df_mean, df_std : pd.DataFrame  — rows = bands, columns = classes
+    """
+    import numpy as np
+    import pandas as pd
+    from pathlib import Path
+
+    all_band_names = list(all_band_names)
+    ref_names = [b for b in reflective_bands if b in all_band_names]
+    emi_names = [b for b in emissive_bands   if b in all_band_names]
+
+    class_display = list(class_labels.keys())
+
+    mean_rows, std_rows = [], []
+
+    for band_idx, band in enumerate(all_band_names):
+        wl = band_wavelengths.get(band, 0.0)
+        m_row = {'Band': band, 'Wavelength (µm)': wl}
+        s_row = {'Band': band, 'Wavelength (µm)': wl}
+
+        for cls_name, cls_val in class_labels.items():
+            vals = X_raw[y == cls_val, band_idx]
+            m_row[cls_name] = np.nanmean(vals) if len(vals) > 0 else np.nan
+            s_row[cls_name] = np.nanstd(vals)  if len(vals) > 0 else np.nan
+
+        mean_rows.append(m_row)
+        std_rows.append(s_row)
+
+    df_mean = pd.DataFrame(mean_rows)
+    df_std  = pd.DataFrame(std_rows)
+
+    # ── Print ─────────────────────────────────────────────────────────────────
+    print(f"\n{'='*80}\n  MEAN\n{'='*80}")
+    print(df_mean.to_string(index=False, float_format='%.3f'))
+    print(f"\n  STD:")
+    print(df_std.to_string(index=False, float_format='%.3f'))
+
+    # ── CSV ───────────────────────────────────────────────────────────────────
+    if save_dir is not None:
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        df_mean.to_csv(save_dir / f'{table_label_prefix}_mean.csv', index=False)
+        df_std.to_csv(save_dir / f'{table_label_prefix}_std.csv',   index=False)
+        print(f"[CSV] → {save_dir}")
+
+    # ── LaTeX ─────────────────────────────────────────────────────────────────
+    if latex_path is not None:
+        _write_spectral_latex(
+            df_mean, df_std, class_display,
+            all_band_names, ref_names, emi_names,
+            band_wavelengths, dec_ref, dec_em,
+            caption_prefix, table_label_prefix, str(latex_path),
+        )
+
+    return df_mean, df_std
+
+
+def _write_spectral_latex(
+    df_mean, df_std, class_display,
+    all_band_names, ref_names, emi_names,
+    band_wavelengths, dec_ref, dec_em,
+    caption_prefix, label_prefix, latex_path,
+):
+    """Write mean, std, mean±std LaTeX tables to one .tex file."""
+    n_cls    = len(class_display)
+    col_spec = "l r " + " ".join(["r"] * n_cls)
+    lines    = []
+    lines.append(r"% Auto-generated by extract_spectral_stats()")
+    lines.append(r"% Requires: \usepackage{booktabs, adjustbox}")
+    lines.append("")
+
+    header = r"    \textbf{Band} & \textbf{$\lambda$ ($\mu$m)}"
+    for cls in class_display:
+        header += f" & \\textbf{{{cls.replace('_', ' ').title()}}}"
+    header += r" \\"
+
+    def _dec(band):
+        return dec_em if band in emi_names else dec_ref
+
+    def _table(caption, label, cell_fn):
+        lines.append(r"\begin{table}[htbp]")
+        lines.append(r"  \centering")
+        lines.append(f"  \\caption{{{caption}}}")
+        lines.append(f"  \\label{{{label}}}")
+        lines.append(r"  \scriptsize")
+        lines.append(r"  \begin{adjustbox}{max width=\textwidth}")
+        lines.append(f"  \\begin{{tabular}}{{{col_spec}}}")
+        lines.append(r"    \toprule")
+        lines.append(header)
+        lines.append(r"    \midrule")
+
+        prev_em = False
+        for idx, band in enumerate(all_band_names):
+            is_em = band in emi_names
+            if not prev_em and is_em:
+                lines.append(r"    \midrule")
+            prev_em = is_em
+            wl  = band_wavelengths.get(band, 0.0)
+            row = f"    {band} & {wl:.3f}"
+            for cls in class_display:
+                row += f" & {cell_fn(idx, cls)}"
+            row += r" \\"
+            lines.append(row)
+
+        lines.append(r"    \bottomrule")
+        lines.append(r"  \end{tabular}")
+        lines.append(r"  \end{adjustbox}")
+        lines.append(r"  \begin{flushleft}")
+        lines.append(r"    \footnotesize Reflective in \%; emissive in K.")
+        lines.append(r"  \end{flushleft}")
+        lines.append(r"\end{table}")
+        lines.append("")
+
+    # Mean
+    _table(f"{caption_prefix} mean spectral response per class.",
+           f"tab:{label_prefix}_mean",
+           lambda i, c: f"{df_mean.iloc[i][c]:.{_dec(all_band_names[i])}f}")
+    # Std
+    _table(f"{caption_prefix} std spectral response per class.",
+           f"tab:{label_prefix}_std",
+           lambda i, c: f"{df_std.iloc[i][c]:.{_dec(all_band_names[i])}f}")
+    # Mean ± Std
+    _table(f"{caption_prefix} mean $\\pm$ std spectral response per class.",
+           f"tab:{label_prefix}_meanstd",
+           lambda i, c: (f"${df_mean.iloc[i][c]:.{_dec(all_band_names[i])}f}"
+                         f" \\pm {df_std.iloc[i][c]:.{_dec(all_band_names[i])}f}$"))
+
+    with open(latex_path, 'w') as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"[LaTeX] → {latex_path}")

@@ -18,19 +18,10 @@ checkpoint_05.pkl :
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
+from scipy.stats import chi2 as chi2_dist
 
-from config import (
-    DATA_DIR, PLOT_DIR, TABLE_DIR, MODEL_DIR, HEIGHT, WIDTH,
-    ALL_BANDS, REFLECTIVE_BANDS, EMISSIVE_BANDS,
-    CLASS_LABELS, CLASS_LABELS_EXT, CLASS_DISPLAY_NAMES,
-    CHI2_CONFIDENCE,
-    apply_plot_style, save_checkpoint, load_checkpoint,
-)
-from functions_project2 import (
-    chi2_classify, plot_chi2_classification,
-    chi2_accuracy_report, calculate_accuracy_metrics,
-    plot_spectral_response,
-)
+from p2_config import *
+from functions_project2 import *
 
 apply_plot_style()
 
@@ -62,7 +53,7 @@ ds = ds.isel(y=slice(None, None, -1), x=slice(None, None, -1))
 n_classes = len(CLASS_LABELS)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 2. CHI-SQUARED CLASSIFICATION  (primary confidence)
+# 2. CHI-SQUARED CLASSIFICATION — FULL IMAGE (primary confidence)
 # ══════════════════════════════════════════════════════════════════════════════
 class_labels_display = {
     "Water": 0, "Cloud": 1, "Snow": 2, "Smoke": 3,
@@ -87,18 +78,12 @@ plot_chi2_classification(
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 4. CHI-SQUARED ACCURACY ON TEST SET
+# 4. CHI-SQUARED PREDICTIONS ON TEST SET
 # ══════════════════════════════════════════════════════════════════════════════
-# Predict on test set with chi-squared threshold
-# Re-use the trained class statistics from chi2_classify internals:
-# We need per-pixel Mahalanobis distances for test set only.
-
-from scipy.stats import chi2 as chi2_dist
-
-n_bands    = X_test.shape[1]
-threshold  = chi2_dist.ppf(CHI2_CONFIDENCE, df=n_bands)
-
 # Compute class means and covariance inverses from training data
+n_bands   = X_test.shape[1]
+threshold = chi2_dist.ppf(CHI2_CONFIDENCE, df=n_bands)
+
 class_means   = []
 class_cov_inv = []
 for k in range(n_classes):
@@ -118,9 +103,9 @@ for k_idx in range(n_classes):
 min_dist_test   = np.min(distances_test, axis=1)
 best_class_test = np.argmin(distances_test, axis=1)
 
-# Apply threshold
+# Apply threshold — rejected pixels get label = n_classes
 y_pred_chi2 = best_class_test.copy()
-y_pred_chi2[min_dist_test > threshold] = n_classes   # Unclassified
+y_pred_chi2[min_dist_test > threshold] = n_classes
 
 print(f"\nTest set chi² rejection:")
 print(f"  Threshold (χ² @ {CHI2_CONFIDENCE:.0%}): {threshold:.4f}")
@@ -128,7 +113,9 @@ print(f"  Classified:   {np.sum(y_pred_chi2 < n_classes):,}")
 print(f"  Unclassified: {np.sum(y_pred_chi2 == n_classes):,} "
       f"({np.mean(y_pred_chi2 == n_classes):.2%})")
 
-# Full accuracy report with rejection
+# ══════════════════════════════════════════════════════════════════════════════
+# 5. CHI-SQUARED ACCURACY REPORT  (with LaTeX)
+# ══════════════════════════════════════════════════════════════════════════════
 df_chi2_report, cm_chi2 = chi2_accuracy_report(
     y_test, y_pred_chi2, CLASS_LABELS,
     n_classes=n_classes,
@@ -138,11 +125,11 @@ df_chi2_report, cm_chi2 = chi2_accuracy_report(
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 5. OPTION A: ACCURACY ON CLASSIFIED PIXELS ONLY
+# 6. OPTION A — ACCURACY ON CLASSIFIED PIXELS ONLY
 # ══════════════════════════════════════════════════════════════════════════════
-classified_mask      = y_pred_chi2 < n_classes
-y_test_classified    = y_test[classified_mask]
-y_pred_classified    = y_pred_chi2[classified_mask]
+classified_mask   = y_pred_chi2 < n_classes
+y_test_classified = y_test[classified_mask]
+y_pred_classified = y_pred_chi2[classified_mask]
 
 df_chi2_classified, _ = calculate_accuracy_metrics(
     y_test_classified, y_pred_classified, CLASS_LABELS,
@@ -150,7 +137,7 @@ df_chi2_classified, _ = calculate_accuracy_metrics(
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. STANDARD VS CHI-SQUARED COMPARISON
+# 7. STANDARD MLC VS CHI-SQUARED COMPARISON
 # ══════════════════════════════════════════════════════════════════════════════
 df_standard, _ = calculate_accuracy_metrics(
     y_test, y_pred_std, CLASS_LABELS,
@@ -159,19 +146,28 @@ df_standard, _ = calculate_accuracy_metrics(
 print("\n" + "=" * 70)
 print("  COMPARISON: Standard MLC vs Chi-squared MLC")
 print("=" * 70)
-print(f"\n  Standard MLC:")
+
+# Standard MLC overall accuracy
 overall_std = df_standard[df_standard['Class'] == '** OVERALL **']
-print(f"    Overall Accuracy: "
-      f"{overall_std[\"Producer's Acc (%)\"].values[0]:.2f}%")
+oa_std      = overall_std["Producer's Acc (%)"].values[0]
+print(f"\n  Standard MLC:")
+print(f"    Overall Accuracy: {oa_std:.2f}%")
+
+# Chi-squared overall (all pixels vs classified only)
+n_total_test = len(y_test)
+n_classified = int(np.sum(y_pred_chi2 < n_classes))
+n_correct    = int(np.sum(y_test[classified_mask] == y_pred_classified))
+oa_all       = n_correct / n_total_test * 100
+oa_cls       = n_correct / n_classified * 100 if n_classified > 0 else 0.0
 
 print(f"\n  Chi-squared MLC ({CHI2_CONFIDENCE:.0%}):")
-print(f"    Overall (all pixels):       "
-      f"{df_chi2_report.iloc[-1]['Producer\\'s Acc (%)']:.2f}%" if 'Producer\'s Acc (%)' in df_chi2_report.columns else "    See report above")
-print(f"    Overall (classified only):  "
-      f"{df_chi2_report.iloc[-1]['User\\'s Acc (%)']:.2f}%" if 'User\'s Acc (%)' in df_chi2_report.columns else "    See report above")
+print(f"    Overall (all pixels):      {oa_all:.2f}%")
+print(f"    Overall (classified only): {oa_cls:.2f}%")
+print(f"    Rejected:                  {n_total_test - n_classified:,} / "
+      f"{n_total_test:,} ({(n_total_test - n_classified)/n_total_test:.2%})")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. MULTI-CONFIDENCE COMPARISON
+# 8. MULTI-CONFIDENCE COMPARISON TABLE
 # ══════════════════════════════════════════════════════════════════════════════
 confidence_levels = [0.90, 0.95, 0.99, 0.999]
 
@@ -180,14 +176,13 @@ print("-" * 48)
 
 for conf in confidence_levels:
     thresh_c = chi2_dist.ppf(conf, df=n_bands)
-    n_reject = np.sum(min_dist_test > thresh_c)
+    n_reject = int(np.sum(min_dist_test > thresh_c))
     pct      = n_reject / len(min_dist_test) * 100
     print(f"  {conf:>10.1%} {thresh_c:>12.4f} {n_reject:>10,} {pct:>7.2f}%")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 8. SPECTRAL RESPONSE — CHI-SQUARED PREDICTIONS
+# 9. SPECTRAL RESPONSE — CHI-SQUARED PREDICTIONS (classified only)
 # ══════════════════════════════════════════════════════════════════════════════
-# Only plot classified (non-rejected) test pixels
 classified_idx = y_pred_chi2 < n_classes
 
 plot_spectral_response(
@@ -218,26 +213,28 @@ plot_spectral_response(
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 9. FULL IMAGE CHI-SQUARED AT MULTIPLE CONFIDENCE LEVELS
+# 10. FULL IMAGE CHI-SQUARED AT MULTIPLE CONFIDENCE LEVELS
 # ══════════════════════════════════════════════════════════════════════════════
 for conf in confidence_levels:
-    cmap_chi2, thresh_c, mdist_c, n_unc_c = chi2_classify(
+    cmap_c, thresh_c, mdist_c, n_unc_c = chi2_classify(
         X_scaled, mlc, class_labels_display,
         height=HEIGHT, width=WIDTH,
         confidence=conf,
     )
 
     plot_chi2_classification(
-        ds, cmap_chi2, class_labels_display,
+        ds, cmap_c, class_labels_display,
         chi2_threshold=thresh_c,
         confidence=conf,
         n_unclassified=n_unc_c,
-        save_path=str(PLOT_DIR / f'mlc_chi2_{conf:.0%}.png'),
+        save_path=str(PLOT_DIR / f'mlc_chi2_{int(conf*100):d}pct.png'),
     )
     plt.close('all')
 
+print(f"\n  Chi² classification maps saved for: {confidence_levels}")
+
 # ══════════════════════════════════════════════════════════════════════════════
-# 10. SAVE CHECKPOINT
+# 11. SAVE CHECKPOINT
 # ══════════════════════════════════════════════════════════════════════════════
 save_checkpoint({
     'class_map_chi2':  class_map_chi2,
@@ -248,6 +245,7 @@ save_checkpoint({
     'threshold_test':  threshold,
     'class_means':     class_means,
     'class_cov_inv':   class_cov_inv,
+    'distances_test':  distances_test,
 }, 'checkpoint_05.pkl')
 
 print("\n[05] Done — chi-squared threshold classification complete.")

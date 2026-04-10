@@ -16,12 +16,8 @@ from sklearn.preprocessing import StandardScaler
 from satpy.writers import get_enhanced_image
 import matplotlib.pyplot as plt
 
-from config import (
-    DATA_DIR, PLOT_DIR, MODEL_DIR, HEIGHT, WIDTH,
-    Y_SLICE, X_SLICE, ALL_BANDS,
-    apply_plot_style, add_geo_ticks, save_checkpoint,
-)
-from functions_project2 import plot_zenith_angles, plot_rgb_subset
+from p2_config import *
+from functions_project2 import *
 
 apply_plot_style()
 

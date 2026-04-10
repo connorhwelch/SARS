@@ -1,9 +1,9 @@
 """
 06_accuracy_and_area.py
 =======================
-Final accuracy comparisons, pixel-area-based class area summaries
-for training data, testing data, K-Means clusters, MLC full scene,
-and chi-squared classification.  LaTeX table exports.
+Final accuracy comparisons, pixel-area-based class area summaries,
+spectral statistics tables (mean/std) for training, testing, K-Means,
+MLC predictions, and chi-squared classification.
 
 Inputs
 ------
@@ -12,19 +12,18 @@ checkpoint_04.pkl, checkpoint_05.pkl
 
 Outputs
 -------
-Area summary tables  → TABLE_DIR / area_*.tex
-Comparison figures   → PLOT_DIR  / area_comparison_*.png
+Area summary tables     → TABLE_DIR / area_*.tex
+Spectral stats tables   → TABLE_DIR / spectral_*.tex  +  .csv
+Comparison figures      → PLOT_DIR  / area_comparison_*.png
 """
 # ── Imports ───────────────────────────────────────────────────────────────────
 import numpy as np
 import pandas as pd
-import xarray as xr
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 
-from config import (
+from p2_config import (
     DATA_DIR, PLOT_DIR, TABLE_DIR, MODEL_DIR, HEIGHT, WIDTH,
-    ALL_BANDS, REFLECTIVE_BANDS, EMISSIVE_BANDS,
+    ALL_BANDS, REFLECTIVE_BANDS, EMISSIVE_BANDS, BAND_WAVELENGTHS,
     CLASS_LABELS, CLASS_LABELS_EXT, CLASS_DISPLAY_NAMES,
     CLASS_COLORS_LIST, CLASS_COLORS_EXT,
     NADIR_ALONG_TRACK, NADIR_CROSS_TRACK, ORBITAL_HEIGHT,
@@ -33,7 +32,7 @@ from config import (
 )
 from functions_project2 import (
     summarize_class_areas, calculate_accuracy_metrics,
-    build_spectral_statistics_table,
+    chi2_accuracy_report, extract_spectral_stats,
 )
 
 apply_plot_style()
@@ -68,92 +67,166 @@ class_map    = ckpt04['class_map']
 class_map_chi2 = ckpt05['class_map_chi2']
 y_pred_chi2    = ckpt05['y_pred_chi2']
 
-n_classes      = len(CLASS_LABELS)
+n_classes        = len(CLASS_LABELS)
 pixel_areas_flat = pixel_areas.ravel()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 2. AREA SUMMARIES — PER DATA SOURCE
+# 2. SPECTRAL STATISTICS — ALL DATA SOURCES
 # ══════════════════════════════════════════════════════════════════════════════
-print("\n" + "=" * 70)
-print("  CLASS AREA SUMMARIES")
-print("=" * 70)
+print("\n" + "#" * 80)
+print("#  SPECTRAL STATISTICS TABLES")
+print("#" * 80)
 
 # ── 2a. Training data ────────────────────────────────────────────────────────
-df_train = summarize_class_areas(
+print("\n── Training Data ──")
+df_mean_train, df_std_train = extract_spectral_stats(
+    X_raw              = X_train_raw,
+    y                  = y_train,
+    all_band_names     = ALL_BANDS,
+    class_labels       = CLASS_LABELS,
+    band_wavelengths   = BAND_WAVELENGTHS,
+    reflective_bands   = REFLECTIVE_BANDS,
+    emissive_bands     = EMISSIVE_BANDS,
+    save_dir           = TABLE_DIR,
+    latex_path         = TABLE_DIR / 'spectral_train.tex',
+    caption_prefix     = "Training Data",
+    table_label_prefix = "train",
+)
+
+# ── 2b. Testing data ─────────────────────────────────────────────────────────
+print("\n── Testing Data ──")
+df_mean_test, df_std_test = extract_spectral_stats(
+    X_raw              = X_test_raw,
+    y                  = y_test,
+    all_band_names     = ALL_BANDS,
+    class_labels       = CLASS_LABELS,
+    band_wavelengths   = BAND_WAVELENGTHS,
+    reflective_bands   = REFLECTIVE_BANDS,
+    emissive_bands     = EMISSIVE_BANDS,
+    save_dir           = TABLE_DIR,
+    latex_path         = TABLE_DIR / 'spectral_test.tex',
+    caption_prefix     = "Testing Data",
+    table_label_prefix = "test",
+)
+
+# ── 2c. MLC predictions on test set ──────────────────────────────────────────
+print("\n── MLC Predictions (Test Set) ──")
+df_mean_mlc, df_std_mlc = extract_spectral_stats(
+    X_raw              = X_test_raw,
+    y                  = y_pred,
+    all_band_names     = ALL_BANDS,
+    class_labels       = CLASS_LABELS,
+    band_wavelengths   = BAND_WAVELENGTHS,
+    reflective_bands   = REFLECTIVE_BANDS,
+    emissive_bands     = EMISSIVE_BANDS,
+    save_dir           = TABLE_DIR,
+    latex_path         = TABLE_DIR / 'spectral_mlc_pred.tex',
+    caption_prefix     = "MLC Predicted",
+    table_label_prefix = "mlc_pred",
+)
+
+# ── 2d. Chi-squared classified pixels only ────────────────────────────────────
+print("\n── Chi-squared Classified (Test Set) ──")
+chi2_mask = y_pred_chi2 < n_classes
+
+df_mean_chi2, df_std_chi2 = extract_spectral_stats(
+    X_raw              = X_test_raw[chi2_mask],
+    y                  = y_pred_chi2[chi2_mask],
+    all_band_names     = ALL_BANDS,
+    class_labels       = CLASS_LABELS,
+    band_wavelengths   = BAND_WAVELENGTHS,
+    reflective_bands   = REFLECTIVE_BANDS,
+    emissive_bands     = EMISSIVE_BANDS,
+    save_dir           = TABLE_DIR,
+    latex_path         = TABLE_DIR / 'spectral_chi2.tex',
+    caption_prefix     = f"Chi-squared ({CHI2_CONFIDENCE:.0%})",
+    table_label_prefix = "chi2",
+)
+
+# ── 2e. K-Means clusters ─────────────────────────────────────────────────────
+print("\n── K-Means Clusters ──")
+cluster_y = cluster_map.ravel()
+cluster_labels_dict = {
+    f"Cluster {c+1}": int(c)
+    for c in sorted(np.unique(cluster_y))
+}
+
+df_mean_km, df_std_km = extract_spectral_stats(
+    X_raw              = X_raw,
+    y                  = cluster_y,
+    all_band_names     = ALL_BANDS,
+    class_labels       = cluster_labels_dict,
+    band_wavelengths   = BAND_WAVELENGTHS,
+    reflective_bands   = REFLECTIVE_BANDS,
+    emissive_bands     = EMISSIVE_BANDS,
+    save_dir           = TABLE_DIR,
+    latex_path         = TABLE_DIR / 'spectral_kmeans.tex',
+    caption_prefix     = "K-Means",
+    table_label_prefix = "kmeans",
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 3. AREA SUMMARIES — PER DATA SOURCE
+# ══════════════════════════════════════════════════════════════════════════════
+print("\n" + "#" * 80)
+print("#  CLASS AREA SUMMARIES")
+print("#" * 80)
+
+# ── 3a. Training data ────────────────────────────────────────────────────────
+df_area_train = summarize_class_areas(
     y_train, a_train, CLASS_LABELS,
     source_name="Training Data",
 )
-print("\n── Training Data ──")
-print(df_train.to_string(index=False))
 
-# ── 2b. Testing data ─────────────────────────────────────────────────────────
-df_test = summarize_class_areas(
+# ── 3b. Testing data ─────────────────────────────────────────────────────────
+df_area_test = summarize_class_areas(
     y_test, a_test, CLASS_LABELS,
     source_name="Testing Data",
 )
-print("\n── Testing Data ──")
-print(df_test.to_string(index=False))
 
-# ── 2c. MLC full scene ───────────────────────────────────────────────────────
-mlc_pred_flat = class_map.ravel()
-
-df_mlc = summarize_class_areas(
-    mlc_pred_flat, pixel_areas_flat, CLASS_LABELS,
+# ── 3c. MLC full scene ───────────────────────────────────────────────────────
+df_area_mlc = summarize_class_areas(
+    class_map.ravel(), pixel_areas_flat, CLASS_LABELS,
     source_name="MLC Full Scene",
 )
-print("\n── MLC Full Scene ──")
-print(df_mlc.to_string(index=False))
 
-# ── 2d. K-Means clusters ─────────────────────────────────────────────────────
-kmeans_flat   = cluster_map.ravel()
-kmeans_labels = cluster_map.copy()
-
-df_kmeans = summarize_class_areas(
-    kmeans_flat, pixel_areas_flat, CLASS_LABELS,
+# ── 3d. K-Means clusters ─────────────────────────────────────────────────────
+df_area_km = summarize_class_areas(
+    cluster_y, pixel_areas_flat, cluster_labels_dict,
     source_name="K-Means Clusters",
 )
-print("\n── K-Means Clusters ──")
-print(df_kmeans.to_string(index=False))
 
-# ── 2e. Chi-squared classification ───────────────────────────────────────────
+# ── 3e. Chi-squared classification ───────────────────────────────────────────
 class_labels_chi2 = {**CLASS_LABELS, "Unclassified": n_classes}
 
-chi2_flat = class_map_chi2.ravel()
-
-df_chi2 = summarize_class_areas(
-    chi2_flat, pixel_areas_flat, class_labels_chi2,
+df_area_chi2 = summarize_class_areas(
+    class_map_chi2.ravel(), pixel_areas_flat, class_labels_chi2,
     source_name=f"Chi² Classification ({CHI2_CONFIDENCE:.0%})",
 )
-print(f"\n── Chi² Classification ({CHI2_CONFIDENCE:.0%}) ──")
-print(df_chi2.to_string(index=False))
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3. COMBINED AREA COMPARISON TABLE
+# 4. COMBINED AREA COMPARISON TABLE
 # ══════════════════════════════════════════════════════════════════════════════
-#    Merge all source summaries into one wide-format comparison table.
-
 all_dfs = []
-for df, tag in [(df_train, 'Training'),
-                (df_test,  'Testing'),
-                (df_mlc,   'MLC'),
-                (df_kmeans,'K-Means'),
-                (df_chi2,  'Chi²')]:
+for df, tag in [(df_area_train, 'Training'),
+                (df_area_test,  'Testing'),
+                (df_area_mlc,   'MLC'),
+                (df_area_km,    'K-Means'),
+                (df_area_chi2,  'Chi²')]:
     tmp = df.copy()
-    tmp = tmp.rename(columns={
-        'Area (km²)':     f'{tag} Area (km²)',
-        'Area (%)':       f'{tag} Area (%)',
-        'Pixel Count':    f'{tag} Pixels',
-    })
-    # Keep only class + the renamed columns
+    # Rename the area columns so they don't collide on merge
+    rename_map = {}
+    for col in tmp.columns:
+        if col != 'Class' and col != '** TOTAL **':
+            rename_map[col] = f'{tag} {col}'
+    tmp = tmp.rename(columns=rename_map)
     keep_cols = ['Class'] + [c for c in tmp.columns if tag in c]
     tmp = tmp[keep_cols]
     all_dfs.append(tmp)
 
-# Merge on Class name
 df_compare = all_dfs[0]
 for df_other in all_dfs[1:]:
     df_compare = df_compare.merge(df_other, on='Class', how='outer')
-
 df_compare = df_compare.fillna(0)
 
 print("\n" + "=" * 100)
@@ -162,26 +235,33 @@ print("=" * 100)
 print(df_compare.to_string(index=False))
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 4. AREA COMPARISON BAR CHART
+# 5. AREA COMPARISON BAR CHART
 # ══════════════════════════════════════════════════════════════════════════════
-#    Group bar chart: one group per class, one bar per data source.
+sources       = ['Training', 'Testing', 'MLC', 'Chi²']
+source_colors = ['#1b9e77', '#d95f02', '#7570b3', '#66a61e']
 
-sources     = ['Training', 'Testing', 'MLC', 'K-Means', 'Chi²']
-area_cols   = [f'{s} Area (km²)' for s in sources]
-source_colors = ['#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e']
+# Find the area column for each source
+area_cols = []
+for s in sources:
+    matches = [c for c in df_compare.columns if s in c and 'Total Area' in c]
+    if matches:
+        area_cols.append(matches[0])
+    else:
+        area_cols.append(None)
 
-# Only use the real classes (exclude Unclassified row if present)
-df_plot = df_compare[df_compare['Class'] != 'Unclassified'].copy()
+# Only plot real classes (exclude totals / unclassified)
+skip_rows = ['** TOTAL **', 'Unclassified']
+df_plot = df_compare[~df_compare['Class'].isin(skip_rows)].copy()
 class_names_plot = df_plot['Class'].values
 
-x        = np.arange(len(class_names_plot))
-n_src    = len(sources)
-bar_w    = 0.15
+x     = np.arange(len(class_names_plot))
+n_src = len(sources)
+bar_w = 0.18
 
 fig, ax = plt.subplots(figsize=(14, 6), dpi=150)
 
 for i, (src, col, clr) in enumerate(zip(sources, area_cols, source_colors)):
-    if col in df_plot.columns:
+    if col is not None and col in df_plot.columns:
         vals = df_plot[col].values
         ax.bar(x + i * bar_w, vals, width=bar_w, label=src,
                color=clr, edgecolor='white', linewidth=0.5)
@@ -200,14 +280,13 @@ fig.savefig(PLOT_DIR / 'area_comparison_bar.png', bbox_inches='tight')
 plt.show()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 5. PIXEL AREA STATISTICS
+# 6. PIXEL AREA STATISTICS
 # ══════════════════════════════════════════════════════════════════════════════
+pa_km2 = pixel_areas / 1e6
+
 print("\n" + "=" * 60)
 print("  PIXEL AREA GEOMETRY STATISTICS")
 print("=" * 60)
-
-pa_km2 = pixel_areas / 1e6
-
 print(f"  Nadir pixel:   {NADIR_ALONG_TRACK * NADIR_CROSS_TRACK / 1e6:.6f} km²")
 print(f"  Scene min:     {pa_km2.min():.6f} km²")
 print(f"  Scene max:     {pa_km2.max():.6f} km²")
@@ -216,69 +295,84 @@ print(f"  Scene median:  {np.median(pa_km2):.6f} km²")
 print(f"  Total scene:   {pa_km2.sum():.2f} km²")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. FINAL ACCURACY SUMMARY TABLE
+# 7. FINAL ACCURACY SUMMARY TABLE
 # ══════════════════════════════════════════════════════════════════════════════
-#    Combine standard MLC and chi-squared metrics into one comparison.
+df_acc_std = calculate_accuracy_metrics(y_test, y_pred, CLASS_LABELS)
 
-df_acc_std, _ = calculate_accuracy_metrics(y_test, y_pred, CLASS_LABELS)
-n_classified  = np.sum(y_pred_chi2 < n_classes)
-n_total_test  = len(y_test)
+# Handle both return signatures (some versions return df, some return df+cm)
+if isinstance(df_acc_std, tuple):
+    df_acc_std = df_acc_std[0]
 
-# Build a compact comparison
+n_total_test = len(y_test)
+n_classified = int(np.sum(y_pred_chi2 < n_classes))
+n_correct_std = int(np.sum(y_test == y_pred))
+n_correct_chi2 = int(np.sum(
+    y_test[chi2_mask] == y_pred_chi2[chi2_mask]
+))
+
+oa_std      = n_correct_std / n_total_test * 100
+oa_chi2_all = n_correct_chi2 / n_total_test * 100
+oa_chi2_cls = n_correct_chi2 / n_classified * 100 if n_classified > 0 else 0.0
+
+summary_data = {
+    'Method': [
+        'Standard MLC',
+        f'Chi² ({CHI2_CONFIDENCE:.0%}) — all pixels',
+        f'Chi² ({CHI2_CONFIDENCE:.0%}) — classified only',
+    ],
+    'Overall Accuracy (%)': [oa_std, oa_chi2_all, oa_chi2_cls],
+    'Pixels Evaluated':     [n_total_test, n_total_test, n_classified],
+    'Pixels Rejected':      [0, n_total_test - n_classified, 0],
+    'Rejection Rate (%)':   [
+        0.0,
+        (n_total_test - n_classified) / n_total_test * 100,
+        0.0,
+    ],
+}
+df_summary = pd.DataFrame(summary_data)
+
 print("\n" + "=" * 70)
 print("  FINAL ACCURACY COMPARISON")
 print("=" * 70)
-
-# Standard MLC overall
-std_oa = df_acc_std[df_acc_std['Class'] == '** OVERALL **']["Producer's Acc (%)"].values[0]
-
-# Chi-squared overall (all pixels) and (classified only)
-from functions_project2 import chi2_accuracy_report
-df_chi2_full, _ = chi2_accuracy_report(
-    y_test, y_pred_chi2, CLASS_LABELS,
-    n_classes=n_classes,
-    confidence=CHI2_CONFIDENCE,
-    chi2_threshold=ckpt05['threshold_test'],
-)
-chi2_oa_all  = df_chi2_full.iloc[-1]["Producer's Acc (%)"]
-chi2_oa_cls  = df_chi2_full.iloc[-1]["User's Acc (%)"]
-
-summary_data = {
-    'Method':                 ['Standard MLC',
-                               f'Chi² ({CHI2_CONFIDENCE:.0%}) — all pixels',
-                               f'Chi² ({CHI2_CONFIDENCE:.0%}) — classified only'],
-    'Overall Accuracy (%)':   [std_oa, chi2_oa_all, chi2_oa_cls],
-    'Pixels Evaluated':       [n_total_test, n_total_test, n_classified],
-    'Pixels Rejected':        [0,
-                               n_total_test - n_classified,
-                               0],
-    'Rejection Rate (%)':     [0.0,
-                               (n_total_test - n_classified) / n_total_test * 100,
-                               0.0],
-}
-
-df_summary = pd.DataFrame(summary_data)
 print(df_summary.to_string(index=False))
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. PER-CLASS ACCURACY COMPARISON
+# 8. PER-CLASS ACCURACY COMPARISON BAR CHART
 # ══════════════════════════════════════════════════════════════════════════════
+# Get per-class Producer's and User's Accuracy for both methods
 class_names = list(CLASS_LABELS.keys())
 
-# Extract per-class Producer's and User's Accuracy for both methods
-pa_std = df_acc_std[df_acc_std['Class'] != '** OVERALL **']["Producer's Acc (%)"].values
-ua_std = df_acc_std[df_acc_std['Class'] != '** OVERALL **']["User's Acc (%)"].values
+# Standard MLC
+pa_std_list, ua_std_list = [], []
+for cls_name, cls_val in CLASS_LABELS.items():
+    true_mask = (y_test == cls_val)
+    pred_mask = (y_pred == cls_val)
+    tp = np.sum(true_mask & pred_mask)
+    pa_std_list.append(tp / true_mask.sum() * 100 if true_mask.sum() > 0 else 0)
+    ua_std_list.append(tp / pred_mask.sum() * 100 if pred_mask.sum() > 0 else 0)
 
-pa_chi2 = df_chi2_full.iloc[:n_classes]["Producer's Acc (%)"].values
-ua_chi2 = df_chi2_full.iloc[:n_classes]["User's Acc (%)"].values
+# Chi-squared (classified only)
+pa_chi2_list, ua_chi2_list = [], []
+y_test_cls  = y_test[chi2_mask]
+y_pred_cls  = y_pred_chi2[chi2_mask]
+for cls_name, cls_val in CLASS_LABELS.items():
+    true_mask = (y_test_cls == cls_val)
+    pred_mask = (y_pred_cls == cls_val)
+    tp = np.sum(true_mask & pred_mask)
+    pa_chi2_list.append(tp / true_mask.sum() * 100 if true_mask.sum() > 0 else 0)
+    ua_chi2_list.append(tp / pred_mask.sum() * 100 if pred_mask.sum() > 0 else 0)
 
-# Side-by-side bar chart
+pa_std  = np.array(pa_std_list)
+ua_std  = np.array(ua_std_list)
+pa_chi2 = np.array(pa_chi2_list)
+ua_chi2 = np.array(ua_chi2_list)
+
 x = np.arange(n_classes)
 w = 0.2
 
 fig, axes = plt.subplots(1, 2, figsize=(16, 6), dpi=150, sharey=True)
 
-# ── Producer's Accuracy ──────────────────────────────────────────────────────
+# Producer's Accuracy
 axes[0].bar(x - w/2, pa_std,  width=w, label='Standard MLC',
             color='#4C72B0', edgecolor='white')
 axes[0].bar(x + w/2, pa_chi2, width=w, label=f'Chi² ({CHI2_CONFIDENCE:.0%})',
@@ -292,7 +386,7 @@ axes[0].legend(fontsize=9)
 axes[0].set_ylim(0, 105)
 axes[0].grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.5)
 
-# ── User's Accuracy ──────────────────────────────────────────────────────────
+# User's Accuracy
 axes[1].bar(x - w/2, ua_std,  width=w, label='Standard MLC',
             color='#4C72B0', edgecolor='white')
 axes[1].bar(x + w/2, ua_chi2, width=w, label=f'Chi² ({CHI2_CONFIDENCE:.0%})',
@@ -311,133 +405,15 @@ fig.savefig(PLOT_DIR / 'accuracy_comparison_bar.png', bbox_inches='tight')
 plt.show()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 8. SPECTRAL STATISTICS — TRAINING & TEST
-# ══════════════════════════════════════════════════════════════════════════════
-print("\n── Spectral Statistics (Training) ──")
-df_wide_train, df_long_train = build_spectral_statistics_table(
-    X_raw=X_train_raw,
-    y=y_train,
-    all_band_names=ALL_BANDS,
-    class_labels=CLASS_LABELS,
-    save_dir=TABLE_DIR,
-)
-
-print("\n── Spectral Statistics (Testing) ──")
-df_wide_test, df_long_test = build_spectral_statistics_table(
-    X_raw=X_test_raw,
-    y=y_test,
-    all_band_names=ALL_BANDS,
-    class_labels=CLASS_LABELS,
-    save_dir=TABLE_DIR,
-)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 9. LATEX EXPORT — AREA COMPARISON
-# ══════════════════════════════════════════════════════════════════════════════
-def _save_area_comparison_latex(df, filepath):
-    """Write area comparison DataFrame as a LaTeX table."""
-    lines = []
-    lines.append(r"% ── Auto-generated by 06_accuracy_and_area.py ──")
-    lines.append(r"% Requires: \usepackage{booktabs}")
-    lines.append(r"")
-    lines.append(r"\begin{table}[htbp]")
-    lines.append(r"  \centering")
-    lines.append(r"  \caption{Class Area Comparison Across Methods}")
-    lines.append(r"  \label{tab:area_comparison}")
-    lines.append(r"  \small")
-
-    # Build column spec
-    n_cols = len(df.columns)
-    col_spec = "l" + " r" * (n_cols - 1)
-    lines.append(r"  \begin{tabular}{" + col_spec + "}")
-    lines.append(r"    \toprule")
-
-    # Header
-    headers = [r"\textbf{" + c.replace('%', r'\%').replace('²', r'$^2$') + "}"
-               for c in df.columns]
-    lines.append("    " + " & ".join(headers) + r" \\")
-    lines.append(r"    \midrule")
-
-    # Data rows
-    for _, row in df.iterrows():
-        vals = []
-        for col in df.columns:
-            v = row[col]
-            if isinstance(v, float):
-                vals.append(f"{v:,.2f}")
-            elif isinstance(v, (int, np.integer)):
-                vals.append(f"{int(v):,}")
-            else:
-                vals.append(str(v).replace('_', r'\_'))
-        lines.append("    " + " & ".join(vals) + r" \\")
-
-    lines.append(r"    \bottomrule")
-    lines.append(r"  \end{tabular}")
-    lines.append(r"\end{table}")
-
-    filepath = str(filepath)
-    with open(filepath, 'w') as f:
-        f.write("\n".join(lines) + "\n")
-    print(f"[LaTeX] Area comparison saved → {filepath}")
-
-
-_save_area_comparison_latex(df_compare,
-                            TABLE_DIR / 'area_comparison.tex')
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 10. LATEX EXPORT — FINAL ACCURACY SUMMARY
-# ══════════════════════════════════════════════════════════════════════════════
-def _save_accuracy_summary_latex(df, filepath):
-    """Write the final accuracy comparison as LaTeX."""
-    lines = []
-    lines.append(r"% ── Auto-generated by 06_accuracy_and_area.py ──")
-    lines.append(r"% Requires: \usepackage{booktabs}")
-    lines.append(r"")
-    lines.append(r"\begin{table}[htbp]")
-    lines.append(r"  \centering")
-    lines.append(r"  \caption{Final Classification Accuracy Summary}")
-    lines.append(r"  \label{tab:accuracy_summary}")
-    lines.append(r"  \small")
-    lines.append(r"  \begin{tabular}{l r r r r}")
-    lines.append(r"    \toprule")
-    lines.append(r"    \textbf{Method} & \textbf{OA (\%)} & "
-                 r"\textbf{Pixels} & \textbf{Rejected} & "
-                 r"\textbf{Rej. (\%)} \\")
-    lines.append(r"    \midrule")
-
-    for _, row in df.iterrows():
-        method = str(row['Method']).replace('%', r'\%').replace('²', r'$^2$')
-        oa     = f"{row['Overall Accuracy (%)']:.2f}"
-        pix    = f"{int(row['Pixels Evaluated']):,}"
-        rej    = f"{int(row['Pixels Rejected']):,}"
-        rejp   = f"{row['Rejection Rate (%)']:.2f}"
-        lines.append(f"    {method} & {oa} & {pix} & {rej} & {rejp}" + r" \\")
-
-    lines.append(r"    \bottomrule")
-    lines.append(r"  \end{tabular}")
-    lines.append(r"\end{table}")
-
-    filepath = str(filepath)
-    with open(filepath, 'w') as f:
-        f.write("\n".join(lines) + "\n")
-    print(f"[LaTeX] Accuracy summary saved → {filepath}")
-
-
-_save_accuracy_summary_latex(df_summary,
-                             TABLE_DIR / 'accuracy_summary.tex')
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 11. FINAL SCENE AREA BREAKDOWN  (pixel area histogram)
+# 9. PIXEL AREA SUMMARY FIGURE
 # ══════════════════════════════════════════════════════════════════════════════
 fig, axes = plt.subplots(1, 2, figsize=(14, 5), dpi=150)
 
-# ── Left: Pixel area spatial map ──────────────────────────────────────────────
 im = axes[0].imshow(pixel_areas / 1e6, cmap='magma', origin='upper')
 axes[0].set_title('Pixel Area (km²)', fontsize=12, fontweight='bold')
 cbar = fig.colorbar(im, ax=axes[0], fraction=0.046, pad=0.04)
 cbar.set_label('Area (km²)', fontsize=10)
 
-# ── Right: Histogram of pixel areas ──────────────────────────────────────────
 axes[1].hist(pa_km2.ravel(), bins=80, color='#4C72B0',
              edgecolor='white', linewidth=0.3, alpha=0.85)
 axes[1].axvline(np.median(pa_km2), color='#DD5522', linestyle='--',
@@ -455,7 +431,85 @@ fig.savefig(PLOT_DIR / 'pixel_area_summary.png', bbox_inches='tight')
 plt.show()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 12. PRINT FINAL FILE MANIFEST
+# 10. LaTeX — AREA COMPARISON TABLE
+# ══════════════════════════════════════════════════════════════════════════════
+def _save_area_latex(df, filepath):
+    lines = []
+    lines.append(r"% Auto-generated by 06_accuracy_and_area.py")
+    lines.append(r"% Requires: \usepackage{booktabs, adjustbox}")
+    lines.append("")
+    lines.append(r"\begin{table}[htbp]")
+    lines.append(r"  \centering")
+    lines.append(r"  \caption{Class Area Comparison Across Methods}")
+    lines.append(r"  \label{tab:area_comparison}")
+    lines.append(r"  \scriptsize")
+    lines.append(r"  \begin{adjustbox}{max width=\textwidth}")
+    n_cols = len(df.columns)
+    col_spec = "l" + " r" * (n_cols - 1)
+    lines.append(f"  \\begin{{tabular}}{{{col_spec}}}")
+    lines.append(r"    \toprule")
+    headers = [r"\textbf{" + c.replace('%', r'\%').replace('²', r'$^2$') + "}"
+               for c in df.columns]
+    lines.append("    " + " & ".join(headers) + r" \\")
+    lines.append(r"    \midrule")
+    for _, row in df.iterrows():
+        vals = []
+        for col in df.columns:
+            v = row[col]
+            if isinstance(v, float):
+                vals.append(f"{v:,.2f}")
+            elif isinstance(v, (int, np.integer)):
+                vals.append(f"{int(v):,}")
+            else:
+                vals.append(str(v).replace('_', r'\_'))
+        lines.append("    " + " & ".join(vals) + r" \\")
+    lines.append(r"    \bottomrule")
+    lines.append(r"  \end{tabular}")
+    lines.append(r"  \end{adjustbox}")
+    lines.append(r"\end{table}")
+    with open(str(filepath), 'w') as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"[LaTeX] Area comparison → {filepath}")
+
+_save_area_latex(df_compare, TABLE_DIR / 'area_comparison.tex')
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 11. LaTeX — ACCURACY SUMMARY TABLE
+# ══════════════════════════════════════════════════════════════════════════════
+def _save_accuracy_latex(df, filepath):
+    lines = []
+    lines.append(r"% Auto-generated by 06_accuracy_and_area.py")
+    lines.append(r"% Requires: \usepackage{booktabs}")
+    lines.append("")
+    lines.append(r"\begin{table}[htbp]")
+    lines.append(r"  \centering")
+    lines.append(r"  \caption{Final Classification Accuracy Summary}")
+    lines.append(r"  \label{tab:accuracy_summary}")
+    lines.append(r"  \small")
+    lines.append(r"  \begin{tabular}{l r r r r}")
+    lines.append(r"    \toprule")
+    lines.append(r"    \textbf{Method} & \textbf{OA (\%)} & "
+                 r"\textbf{Pixels} & \textbf{Rejected} & "
+                 r"\textbf{Rej. (\%)} \\")
+    lines.append(r"    \midrule")
+    for _, row in df.iterrows():
+        method = str(row['Method']).replace('%', r'\%').replace('²', r'$^2$')
+        oa     = f"{row['Overall Accuracy (%)']:.2f}"
+        pix    = f"{int(row['Pixels Evaluated']):,}"
+        rej    = f"{int(row['Pixels Rejected']):,}"
+        rejp   = f"{row['Rejection Rate (%)']:.2f}"
+        lines.append(f"    {method} & {oa} & {pix} & {rej} & {rejp}" + r" \\")
+    lines.append(r"    \bottomrule")
+    lines.append(r"  \end{tabular}")
+    lines.append(r"\end{table}")
+    with open(str(filepath), 'w') as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"[LaTeX] Accuracy summary → {filepath}")
+
+_save_accuracy_latex(df_summary, TABLE_DIR / 'accuracy_summary.tex')
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 12. FILE MANIFEST
 # ══════════════════════════════════════════════════════════════════════════════
 print("\n" + "=" * 70)
 print("  OUTPUT FILE MANIFEST")
@@ -466,12 +520,12 @@ for f in sorted(PLOT_DIR.glob('*.png')):
     print(f"    • {f.name}")
 
 print(f"\n  Tables ({TABLE_DIR}):")
-for f in sorted(TABLE_DIR.glob('*.tex')):
+for f in sorted(TABLE_DIR.glob('*.*')):
     print(f"    • {f.name}")
 
 print(f"\n  Models / Checkpoints ({MODEL_DIR}):")
 for f in sorted(MODEL_DIR.glob('*.pkl')):
     print(f"    • {f.name}")
 
-print("\n[06] Done — accuracy and area analysis complete.")
+print("\n[06] Done — accuracy, area, and spectral statistics complete.")
 print("=" * 70)

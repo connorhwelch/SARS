@@ -23,17 +23,8 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import classification_report
 from satpy.writers import get_enhanced_image
 
-from config import (
-    DATA_DIR, PLOT_DIR, TABLE_DIR, MODEL_DIR, HEIGHT, WIDTH,
-    ALL_BANDS, REFLECTIVE_BANDS, EMISSIVE_BANDS, BAND_WAVELENGTHS,
-    CLASS_LABELS, CLASS_NAMES, CLASS_COLORS_LIST, CLASS_DISPLAY_NAMES,
-    apply_plot_style, add_geo_ticks, save_checkpoint, load_checkpoint,
-)
-from functions_project2 import (
-    plot_confusion_matrix, plot_per_class_confusion,
-    calculate_accuracy_metrics, plot_spectral_response,
-    build_spectral_statistics_table,
-)
+from p2_config import *
+from functions_project2 import *
 
 apply_plot_style()
 
@@ -203,3 +194,19 @@ save_checkpoint({
 }, 'checkpoint_04.pkl')
 
 print("\n[04] Done — MLC trained, evaluated, and mapped.")
+
+df_pixel_info, df_spectral_mean, df_spectral_std = build_class_summary_tables(
+    X_raw            = X_train_raw,
+    y                = y_train,
+    ds               = ds,
+    pixel_areas      = pixel_areas,
+    pixel_cross      = pixel_cross,
+    pixel_along      = pixel_along,
+    class_labels     = CLASS_LABELS,
+    all_band_names   = ALL_BANDS,
+    reflective_bands = REFLECTIVE_BANDS,
+    emissive_bands   = EMISSIVE_BANDS,
+    satellite_name   = "NOAA-20 VIIRS",
+    save_dir         = TABLE_DIR,
+    latex_path       = TABLE_DIR / 'class_summary_tables.tex',
+)

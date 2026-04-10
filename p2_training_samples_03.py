@@ -22,15 +22,8 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from satpy.writers import get_enhanced_image
 
-from config import (
-    DATA_DIR, PLOT_DIR, MODEL_DIR, HEIGHT, WIDTH,
-    ALL_BANDS, CLASS_LABELS, TEST_SIZE, RANDOM_STATE,
-    NADIR_ALONG_TRACK, NADIR_CROSS_TRACK, ORBITAL_HEIGHT,
-    apply_plot_style, save_checkpoint, load_checkpoint,
-)
-from functions_project2 import (
-    plot_rgb_subset, viirs_day_snow_fog_rgb, compute_pixel_area_grid,
-)
+from p2_config import *
+from functions_project2 import *
 
 apply_plot_style()
 
@@ -73,9 +66,12 @@ print(f"Scene max pixel area  : {pixel_areas.max() / 1e6:.4f} km²")
 # ── 3a. WATER ─────────────────────────────────────────────────────────────────
 R, G, B = rgbstack[:,:,0], rgbstack[:,:,1], rgbstack[:,:,2]
 
-mask_blue = (R < 0.2) & (G < 0.5) & (B > 0.5)
-water_mask = mask_blue.copy()
+# Aggressive water mask
+mask_blue_green = (R < 0.2) & (G < 0.5) & (B > 0.5)
+water_mask = mask_blue_green.copy()
 
+# Conservative water selection
+mask_blue = (R < 0.2) & (G < 0.2) & (B > 0.5)
 blue_only = np.zeros_like(rgbstack)
 blue_only[mask_blue] = rgbstack[mask_blue]
 
