@@ -2316,6 +2316,9 @@ def chi2_classify(X_scaled, mlc, class_labels, height, width,
     class_map_chi2 = best_class.copy()
     class_map_chi2[unclassified_mask] = n_classes
 
+    class_pred_chi2 = best_class.copy()
+    class_pred_chi2[unclassified_mask] = n_classes
+
     # Reshape to image
     class_map_chi2 = class_map_chi2.reshape(height, width)
     min_distances   = min_distances.reshape(height, width)
@@ -2445,7 +2448,7 @@ def plot_kmeans_spectral_response(
         title = f"K-Means Spectral Response (k={k}, {n_clusters} clusters)"
 
     # ── Call existing plot function ───────────────────────────────────────────
-    plot_spectral_response(
+    class_stats = plot_spectral_response(
         X_raw=X_raw,
         y=cluster_labels,
         all_band_names=all_band_names,
@@ -2757,3 +2760,115 @@ def _write_spectral_latex(
     with open(latex_path, 'w') as f:
         f.write("\n".join(lines) + "\n")
     print(f"[LaTeX] → {latex_path}")
+
+    import numpy as np
+    import xarray as xr
+    import matplotlib.pyplot as plt
+
+    def viirs_dust_rgb(ds, m12_var='M12', m15_var='M15', m16_var='M16',
+                       red_range=(-4, 2), green_range=(0, 15), blue_range=(261, 289),
+                       gamma_red=1.0, gamma_green=2.5, gamma_blue=1.0,
+                       title="VIIRS Dust RGB", figsize=(12, 10),
+                       save_path=None, dpi=200):
+        """
+        Generate a Dust RGB composite image from a VIIRS xarray Dataset.
+
+        Dust RGB Recipe (adapted from EUMETSAT):
+            Red:   BT(M16, 12.0µm) - BT(M15, 10.8µm)   [-4, +2 K],   gamma=1.0
+            Green: BT(M15, 10.8µm) - BT(M12, 3.7µm)     [0, +15 K],   gamma=2.5
+            Blue:  BT(M15, 10.8µm)                        [261, 289 K], gamma=1.0
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            xarray Dataset containing VIIRS brightness temperature variables.
+        m12_var : str, optional
+            Variable name for band M12 (3.7 µm) in the Dataset. Default is 'M12'.
+        m15_var : str, optional
+            Variable name for band M15 (10.8 µm) in the Dataset. Default is 'M15'.
+        m16_var : str, optional
+            Variable name for band M16 (12.0 µm) in the Dataset. Default is 'M16'.
+        red_range : tuple, optional
+            (min, max) range for the Red channel (M16-M15 difference) in K.
+            Default is (-4, 2).
+        green_range : tuple, optional
+            (min, max) range for the Green channel (M15-M12 difference) in K.
+            Default is (0, 15).
+        blue_range : tuple, optional
+            (min, max) range for the Blue channel (M15 BT) in K.
+            Default is (261, 289).
+        gamma_red : float, optional
+            Gamma correction for Red channel. Default is 1.0.
+        gamma_green : float, optional
+            Gamma correction for Green channel. Default is 2.5.
+        gamma_blue : float, optional
+            Gamma correction for Blue channel. Default is 1.0.
+        title : str, optional
+            Title for the plot. Default is "VIIRS Dust RGB".
+        figsize : tuple, optional
+            Figure size. Default is (12, 10).
+        save_path : str or None, optional
+            If provided, saves the figure to this path.
+        dpi : int, optional
+            DPI for saved figure. Default is 200.
+
+        Returns
+        -------
+        dust_rgb : xr.DataArray
+            3-channel (H, W, 3) Dust RGB DataArray with values in [0, 1].
+        fig : matplotlib.figure.Figure
+            The matplotlib figure object.
+        ax : matplotlib.axes.Axes
+            The matplotlib axes object.
+        """
+
+        # ---- Step 1: Extract BT arrays from xarray Dataset ----
+        bt_m12 = ds[m12_var].astype(np.float64)
+        bt_m15 = ds[m15_var].astype(np.float64)
+        bt_m16 = ds[m16_var].astype(np.float64)
+
+        # ---- Step 2: Compute channel differences ----
+        red_data = bt_m16 - bt_m15  # BT(12.0µm) - BT(10.8µm)
+        green_data = bt_m15 - bt_m12  # BT(10.8µm) - BT(3.7µm)
+        blue_data = bt_m15  # BT(10.8µm)
+
+        # ---- Step 3: Normalize each channel to [0, 1] ----
+        def normalize(data, vmin, vmax):
+            """Clip and scale xarray DataArray to [0, 1]."""
+            return ((data - vmin) / (vmax - vmin)).clip(0, 1)
+
+        red = normalize(red_data, *red_range)
+        green = normalize(green_data, *green_range)
+        blue = normalize(blue_data, *blue_range)
+
+        # ---- Step 4: Apply gamma correction ----
+        red = red ** (1.0 / gamma_red)
+        green = green ** (1.0 / gamma_green)
+        blue = blue ** (1.0 / gamma_blue)
+
+        # ---- Step 5: Stack into RGB DataArray ----
+        dust_rgb = xr.concat([red, green, blue], dim='rgb')
+        dust_rgb = dust_rgb.transpose(..., 'rgb')  # move RGB to last axis (H, W, 3)
+
+        # Convert to numpy for plotting, fill NaNs with 0 (black)
+        rgb_np = dust_rgb.values.copy()
+        rgb_np = np.nan_to_num(rgb_np, nan=0.0)
+        rgb_np = np.clip(rgb_np, 0, 1)
+
+        # ---- Step 6: Plot ----
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        ax.imshow(rgb_np, interpolation='nearest')
+        ax.set_title(title, fontsize=16, fontweight='bold')
+        ax.set_xlabel('Pixel Column')
+        ax.set_ylabel('Pixel Row')
+        ax.grid(False)
+
+        plt.tight_layout()
+
+        if save_path:
+            fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+            print(f"Dust RGB saved to: {save_path}")
+
+        plt.show()
+
+        return dust_rgb, fig, ax
