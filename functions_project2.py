@@ -1161,21 +1161,19 @@ def plot_per_class_confusion(y_test, y_pred, class_labels,
     plt.show()
 
 
-def viirs_day_snow_fog_rgb(M10, M7, M5):
+def viirs_rgb(R, G, B):
     """
-    Create VIIRS Day Snow-Fog RGB
+    Create VIIRS RGB
 
     Parameters
     ----------
-    M10 : SWIR (1.61 µm)
-    M7  : NIR  (0.865 µm)
-    M5  : Red  (0.672 µm)
+
     """
 
     import numpy as np
 
     # Stack channels
-    rgb = np.stack([M10, M7, M5], axis=-1)
+    rgb = np.stack([R, G, B], axis=-1)
 
     # Normalize each channel (simple stretch)
     def normalize(ch, vmin=None, vmax=None):
